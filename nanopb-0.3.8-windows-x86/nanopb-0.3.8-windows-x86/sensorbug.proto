@@ -1,0 +1,19 @@
+syntax = "proto2";
+
+message SensorMessage {
+	optional uint32 pir_status = 1;
+	optional uint32 mic = 2;
+	optional uint32 light = 3;
+	optional float accelx = 4;
+	optional float accely = 5;
+	optional float accelz = 6;
+	optional float gyrx = 7;
+	optional float gyry = 8;
+	optional float gyrz = 9;
+	optional float magx = 10;
+	optional float magy = 11;
+	optional float magz = 12;
+	optional float temperature = 13;
+	optional float pressure = 14;
+	optional float humidity = 15;
+}
