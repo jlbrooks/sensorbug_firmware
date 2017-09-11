@@ -1181,10 +1181,10 @@ int main(void)
     taskParams.arg0 = 1000000 / Clock_tickPeriod;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams,
-                   NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
     //bmxService_createTask();
+    lightService_createTask();
 
     /* Open and setup pins */
     setuppins();
