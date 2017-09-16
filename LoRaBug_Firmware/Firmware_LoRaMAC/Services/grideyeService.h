@@ -29,6 +29,7 @@ extern "C"
  * CONSTANTS
  */
 
+#define GE_FRAME_SIZE 64
 #define GE_MODE_NORMAL 0x00
 #define GE_MODE_SLEEP 0x10
 #define GE_MODE_STANDBY_1 0x20

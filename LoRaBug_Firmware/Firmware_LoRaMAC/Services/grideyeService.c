@@ -212,6 +212,11 @@ static bool grideye_set_mode(uint8_t mode) {
     return true;
 }
 
+/*********************************************************************
+ * @fn      grideye_get_ambient_temp
+ * @param   None
+ * @return  The double value of the current ambient temperature
+ */
 static double grideye_get_ambient_temp(void)
 {
     uint8_t lsb, msb;
@@ -221,12 +226,37 @@ static double grideye_get_ambient_temp(void)
     return (((msb << 8) + lsb) * 0.0625);
 }
 
+
+/*********************************************************************
+ * @fn      grideye_get_frame
+ * @param   frame_buffer The buffer to fill. Must have 64 spaces
+ * @return  None
+ */
+static void grideye_get_frame(uint16_t *frame_buffer) {
+    uint8_t lsb, msb;
+    for (int i = 0; i < GE_FRAME_SIZE; i++) {
+        lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
+        msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
+        frame_buffer[i] = ((msb <<8) + lsb);
+    }
+}
+
+static void print_frame(uint16_t *frame) {
+    for (int i = 0; i < GE_FRAME_SIZE; i++) {
+        uartprintf("%d ", frame[i]);
+        if ((i+1) % 8 == 0) {
+            uartprintf("\r\n");
+        }
+    }
+}
+
 /*********************************************************************
  * @fn      grideye_taskFxn
  * @return  None.
  */
 static void grideye_taskFxn (UArg a0, UArg a1)
 {
+    uint16_t frame[64];
     DELAY_MS(8000);
     uartprintf("Starting task function...\r\n");
 
@@ -239,10 +269,11 @@ static void grideye_taskFxn (UArg a0, UArg a1)
     grideye_set_mode(GE_MODE_NORMAL);
 
     while(1){
-        uartprintf("In loop\r\n");
 
         double temp = grideye_get_ambient_temp();
-        uartprintf("Temp: %f\r\n", temp);
+        uartprintf("Temp: %f\r\n\r\n", temp);
+        grideye_get_frame(frame);
+        print_frame(frame);
         toggleLed(LED_PIN_TX);
         DELAY_MS(2000);
     }
