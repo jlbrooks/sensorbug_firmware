@@ -113,12 +113,6 @@ Void light_taskFxn(UArg arg0, UArg arg1)
     ADC_Params   params;
     int_fast16_t res;
 
-    ledPinHandle = PIN_open(&ledPinState, ledPinTable);
-
-    if(!ledPinHandle) {
-        ;
-    }
-
     //PIN_setOutputValue(ledPinHandle, Board_HDR_ADIO0, true);
 
     ADC_Params_init(&params);
@@ -127,11 +121,11 @@ Void light_taskFxn(UArg arg0, UArg arg1)
     if (adc == NULL) {
         uartputs("qwertyuioed\r\n");
         DELAY_MS(2000);
+        setLed(Board_RLED, true);
         System_abort("Error initializing ADC channel 1\n");
     }
     else {
         uartputs("ADC channel 1 initialized\r\n");
-        //PIN_setOutputValue(ledPinHandle, Board_RLED, true);
     }
 
     while(1) {
@@ -140,15 +134,15 @@ Void light_taskFxn(UArg arg0, UArg arg1)
         if (res == ADC_STATUS_SUCCESS) {
             uartprintf("ADC channel 1 convert result (%d): 0x%x\r\n", adcValue1[0],
                 adcValue1[0]);
-            PIN_setOutputValue(ledPinHandle, Board_GLED, true);
+            setLed(Board_GLED, true);
             DELAY_MS(2000);
 
         }
         else {
             uartprintf("ADC channel 1 convert failed (%d)\r\n", i);
-            PIN_setOutputValue(ledPinHandle, Board_RLED, true);
+            setLed(Board_RLED, true);
         }
-        PIN_setOutputValue(ledPinHandle, Board_GLED, false);
+        setLed(Board_GLED, false);
         DELAY_MS(2000);
     }
 

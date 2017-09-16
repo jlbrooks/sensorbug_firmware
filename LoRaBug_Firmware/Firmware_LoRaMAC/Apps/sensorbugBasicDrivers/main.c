@@ -1184,7 +1184,8 @@ int main(void)
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
     //bmxService_createTask();
-    lightService_createTask();
+    //lightService_createTask();
+    grideyeService_createTask();
 
     /* Open and setup pins */
     setuppins();

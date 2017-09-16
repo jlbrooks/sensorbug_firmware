@@ -29,6 +29,11 @@ extern "C"
  * CONSTANTS
  */
 
+#define GE_MODE_NORMAL 0x00
+#define GE_MODE_SLEEP 0x10
+#define GE_MODE_STANDBY_1 0x20
+#define GE_MODE_STANDBY_2 0x21
+
 /*********************************************************************
  * MACROS
  */
