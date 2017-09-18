@@ -274,8 +274,20 @@ static void grideye_taskFxn (UArg a0, UArg a1)
         uartprintf("Temp: %f\r\n\r\n", temp);
         grideye_get_frame(frame);
         print_frame(frame);
+        uartputs("Putting grideye to sleep...\r\n");
+        grideye_set_mode(GE_MODE_SLEEP);
+        DELAY_MS(500);
+        uartputs("GR should be asleep, trying to read frame\r\n");
+        grideye_get_frame(frame);
+        print_frame(frame);
+        uartputs("Waking up grideye\r\n");
+        grideye_set_mode(GE_MODE_NORMAL);
+        DELAY_MS(500);
+        uartputs("Reading new frame\r\n");
+        grideye_get_frame(frame);
+        print_frame(frame);
         toggleLed(LED_PIN_TX);
-        DELAY_MS(2000);
+        DELAY_MS(5000);
     }
 
 }
