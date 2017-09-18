@@ -1,14 +1,14 @@
 /****************************************************************
- @file occulowService.h
+ @file pcService.h
 
- @brief This file contains the light sensor service interface
-        Created on: Jul 11, 2017
+ @brief This file contains the people counting service interface
+
 
  @author: Jacob Brooks
  ***************************************************************/
 
-#ifndef SERVICES_OCCULOWSERVICE_H_
-#define SERVICES_OCCULOWSERVICE_H_
+#ifndef SERVICES_PCSERVICE_H_
+#define SERVICES_PCSERVICE_H_
 
 #ifdef __cplusplus
 extern "C"
@@ -38,7 +38,7 @@ extern "C"
 /*
  * Task creation function for the occulow service
  */
-extern void occulowService_createTask(void);
+extern void pcService_createTask(void);
 
 
 /*********************************************************************
@@ -48,4 +48,4 @@ extern void occulowService_createTask(void);
 }
 #endif
 
-#endif /* SERVICES_OCCULOWSERVICE_H_ */
+#endif /* SERVICES_PCSERVICE_H_ */

@@ -1,6 +1,6 @@
 /******************************************************************************
 
-  @file  grideyeService.c
+  @file  occulowService.c
 
  @brief This file implements the Occulow people-counting code
 
@@ -9,8 +9,8 @@
 
  ******************************************************************************/
 
-#ifndef SERVICES_OCCULOWSERVICE_C_
-#define SERVICES_OCCULOWSERVICE_C_
+#ifndef SERVICES_PCSERVICE_C_
+#define SERVICES_PCSERVICE_C_
 
 /*********************************************************************
  * INCLUDES
@@ -29,7 +29,7 @@
 #include "io.h"
 
 #include "grideyeService.h"
-#include "occulowService.h"
+#include "pcService.h"
 
 /*******************************************************************************
  * MACROS
@@ -40,9 +40,9 @@
 /*******************************************************************************
  * CONSTANTS
  */
-#define OCCULOW_TASK_PRIORITY                     5
+#define PC_TASK_PRIORITY                     5
 
-#define OCCULOW_TASK_STACK_SIZE                   1200
+#define PC_TASK_STACK_SIZE                   1200
 
 /*******************************************************************************
  * TYPEDEFS
@@ -57,14 +57,14 @@
  */
 
 // Task configuration
-Task_Struct occulowTask;
-Char occulowTaskStack[OCCULOW_TASK_STACK_SIZE];
+Task_Struct pcTask;
+Char pcTaskStack[PC_TASK_STACK_SIZE];
 
 /*********************************************************************
  * @fn      occulow_taskFxn
  * @return  None.
  */
-static void occulow_taskFxn(UArg a0, UArg a1) {
+static void pc_taskFxn(UArg a0, UArg a1) {
 
 }
 
@@ -73,26 +73,26 @@ static void occulow_taskFxn(UArg a0, UArg a1) {
  */
 
 /*********************************************************************
- * @fn      occulowService_createTask
+ * @fn      pcService_createTask
  *
- * @brief   Task creation function for the Occulow application.
+ * @brief   Task creation function for the people-counting application.
  *
  * @param   None.
  *
  * @return  None.
  */
-void occulowService_createTask(void)
+void pcService_createTask(void)
 {
     Task_Params taskParams;
 
     // Configure task
     Task_Params_init(&taskParams);
-    taskParams.stack = occulowTaskStack;
-    taskParams.stackSize = OCCULOW_TASK_STACK_SIZE;
+    taskParams.stack = pcTaskStack;
+    taskParams.stackSize = PC_TASK_STACK_SIZE;
     //taskParams.priority = GRIDEYE_TASK_PRIORITY;
 
-    Task_construct(&occulowTask, occulow_taskFxn, &taskParams, NULL);
+    Task_construct(&pcTask, pc_taskFxn, &taskParams, NULL);
 }
 
 
-#endif /* SERVICES_OCCULOWSERVICE_C_ */
+#endif /* SERVICES_PCSERVICE_C_ */
