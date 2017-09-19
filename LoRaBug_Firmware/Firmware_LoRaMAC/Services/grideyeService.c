@@ -243,11 +243,13 @@ static void grideye_get_frame(uint16_t *frame_buffer) {
 
 static void print_frame(uint16_t *frame) {
     for (int i = 0; i < GE_FRAME_SIZE; i++) {
-        uartprintf("%d ", frame[i]);
-        if ((i+1) % 8 == 0) {
-            uartprintf("\r\n");
+        if (i < GE_FRAME_SIZE - 1) {
+            uartprintf("%d,", frame[i]);
+        } else {
+            uartprintf("%d", frame[i]);
         }
     }
+    uartprintf("\r\n");
 }
 
 /*********************************************************************
@@ -269,25 +271,12 @@ static void grideye_taskFxn (UArg a0, UArg a1)
     grideye_set_mode(GE_MODE_NORMAL);
 
     while(1){
-
-        double temp = grideye_get_ambient_temp();
-        uartprintf("Temp: %f\r\n\r\n", temp);
-        grideye_get_frame(frame);
-        print_frame(frame);
-        uartputs("Putting grideye to sleep...\r\n");
-        grideye_set_mode(GE_MODE_SLEEP);
-        DELAY_MS(500);
-        uartputs("GR should be asleep, trying to read frame\r\n");
-        grideye_get_frame(frame);
-        print_frame(frame);
-        uartputs("Waking up grideye\r\n");
-        grideye_set_mode(GE_MODE_NORMAL);
-        DELAY_MS(500);
-        uartputs("Reading new frame\r\n");
+//        double temp = grideye_get_ambient_temp();
+//        uartprintf("Temp: %f\r\n\r\n", temp);
         grideye_get_frame(frame);
         print_frame(frame);
         toggleLed(LED_PIN_TX);
-        DELAY_MS(5000);
+        DELAY_MS(100);
     }
 
 }

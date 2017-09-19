@@ -48,4 +48,6 @@ typedef struct frame_queue {
  * FUNCTIONS
  */
 
+void enqueue_frame(frame_queue_t *queue, frame_t new_frame);
+
 #endif /* SERVICES_PCFRAMEUTIL_H_ */
