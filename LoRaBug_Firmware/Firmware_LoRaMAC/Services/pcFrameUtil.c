@@ -16,14 +16,13 @@
  * INCLUDES
  */
 #include <stdio.h>
+#include <stdbool.h>
 #include "pcFrameUtil.h"
 #include "grideyeService.h"
 
 /*******************************************************************************
  * MACROS
  */
-
-#define GET_FRAME_INDEX(ROW, COL) ((ROW) * GE_GRID_SIZE + (COL))
 
 /*******************************************************************************
  * TYPEDEFS
@@ -57,8 +56,16 @@ void frame_queue_init(frame_queue_t *queue, uint16_t size, uint16_t len) {
     queue->cur_len = 0;
 }
 
-uint8_t frame_queue_full(frame_queue_t *queue) {
+bool frame_queue_full(frame_queue_t *queue) {
     return (queue->cur_len == queue->max_len);
+}
+
+frame_t frame_queue_get(frame_queue_t *queue, uint16_t i) {
+    if (i < 0 || i > queue->cur_len) {
+        return NULL;
+    }
+
+    return queue->frames[i];
 }
 
 void enqueue_frame(frame_queue_t *queue, frame_t new_frame) {
@@ -90,6 +97,47 @@ frame_t compute_median_frame(frame_queue_t *queue, frame_t frame_out) {
     }
 
     return frame_out;
+}
+
+uint16_t get_max_index_in_col(frame_t frame, uint16_t col) {
+    frame_elem_t max_elem = frame[GET_FRAME_INDEX(0, col)];
+    uint16_t max_elem_index = 0;
+
+    for (int i = 0; i < GE_GRID_SIZE; i++) {
+        frame_elem_t elem = frame[GET_FRAME_INDEX(i,col)];
+        if (elem > max_elem) {
+            max_elem = elem;
+            max_elem_index = i;
+        }
+    }
+
+    return max_elem_index;
+}
+
+bool is_local_max(frame_t frame, uint16_t row, uint16_t col) {
+    frame_elem_t current_max = frame[GET_FRAME_INDEX(row, col)];
+
+    // Greater than (row+1, col), (row-1, col)
+    if ((row < MAX_GE_GRID_INDEX && current_max < frame[GET_FRAME_INDEX(row+1, col)])
+        || (row > 0 && current_max < frame[GET_FRAME_INDEX(row-1, col)])) {
+        return false;
+    }
+    // Greater than (row, col+1), (row, col-1)
+    if ((col < MAX_GE_GRID_INDEX && current_max < frame[GET_FRAME_INDEX(row, col+1)])
+        || (col > 0 && current_max < frame[GET_FRAME_INDEX(row, col-1)])) {
+        return false;
+    }
+    // Greater than (row+1, col+1), (row-1, col-1)
+    if ((row < MAX_GE_GRID_INDEX && col < MAX_GE_GRID_INDEX && current_max < frame[GET_FRAME_INDEX(row+1, col+1)])
+        || (row > 0 && col > 0 && current_max < frame[GET_FRAME_INDEX(row-1, col-1)])) {
+        return false;
+    }
+    // Greater than (row+1, col-1), (row-1, col+1)
+    if ((row < MAX_GE_GRID_INDEX && col > 0 && current_max < frame[GET_FRAME_INDEX(row+1, col-1)])
+        || (row > 0 && col < MAX_GE_GRID_INDEX && current_max < frame[GET_FRAME_INDEX(row-1, col+1)])) {
+        return false;
+    }
+    return true;
 }
 
 /*******************************************************************************

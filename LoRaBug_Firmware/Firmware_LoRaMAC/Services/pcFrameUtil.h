@@ -17,6 +17,7 @@
  * INCLUDES
  */
 #include <stdint.h>
+#include <stdbool.h>
 
 /*********************************************************************
 *  EXTERNAL VARIABLES
@@ -45,16 +46,24 @@ typedef struct frame_queue {
  * MACROS
  */
 
+#define GET_FRAME_INDEX(ROW, COL) ((ROW) * GE_GRID_SIZE + (COL))
+
 /*********************************************************************
  * FUNCTIONS
  */
 
 void frame_queue_init(frame_queue_t *queue, uint16_t size, uint16_t len);
 
-uint8_t frame_queue_full(frame_queue_t *queue);
+bool frame_queue_full(frame_queue_t *queue);
+
+frame_t frame_queue_get(frame_queue_t *queue, uint16_t i);
 
 void enqueue_frame(frame_queue_t *queue, frame_t new_frame);
 
 frame_t compute_median_frame(frame_queue_t *queue, frame_t frame_out);
+
+uint16_t get_max_index_in_col(frame_t frame, uint16_t col);
+
+bool is_local_max(frame_t frame, uint16_t row, uint16_t col);
 
 #endif /* SERVICES_PCFRAMEUTIL_H_ */
