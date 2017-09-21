@@ -208,12 +208,27 @@ static void update_counter(void) {
     counter.count_updated = true;
 }
 
+static void print_frame(uint16_t *frame) {
+    for (int i = 0; i < GE_FRAME_SIZE; i++) {
+        if (i < GE_FRAME_SIZE - 1) {
+            uartprintf("%d,", frame[i]);
+        } else {
+            uartprintf("%d", frame[i]);
+        }
+    }
+    uartprintf("\r\n");
+}
+
 /*********************************************************************
  * @fn      occulow_taskFxn
  * @return  None.
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
-
+    frame_elem_t frame[GE_FRAME_SIZE];
+    while (1) {
+        mailbox_receive_frame(&frame);
+        print_frame(&frame);
+    }
 }
 
 /*********************************************************************

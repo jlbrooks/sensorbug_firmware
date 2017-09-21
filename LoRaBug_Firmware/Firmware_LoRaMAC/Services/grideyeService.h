@@ -21,6 +21,8 @@ extern "C"
  * INCLUDES
  */
 
+#include "pcFrameUtil.h"
+
 /*********************************************************************
 *  EXTERNAL VARIABLES
 */
@@ -49,6 +51,8 @@ extern "C"
  * Task creation function for the GRIDEYE Service.
  */
 extern void grideyeService_createTask(void);
+
+void mailbox_receive_frame(frame_t *frame);
 
 
 /*********************************************************************

@@ -19,8 +19,11 @@
 #include <string.h>
 
 #include <xdc/runtime/System.h>
+#include <xdc/runtime/Error.h>
+#include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Mailbox.h>
 
 
 /* Board Header files */
@@ -33,6 +36,7 @@
 #include "io.h"
 
 #include "grideyeService.h"
+#include "pcFrameUtil.h"
 
 /*******************************************************************************
  * MACROS
@@ -92,6 +96,12 @@ static PIN_Config enPinTable[] = {
 static uint8_t ge_mode = GE_MODE_NORMAL;
 static uint8_t ge_write_buffer[GE_BUFFER_DATA_LENGTH];
 static uint8_t ge_read_buffer[GE_BUFFER_DATA_LENGTH];
+
+// Current frame
+static frame_elem_t frame[GE_FRAME_SIZE];
+
+// Mailbox
+static Mailbox_Handle mailbox;
 
 /*********************************************************************
  * @fn      grideye_read_byte
@@ -241,6 +251,23 @@ static void grideye_get_frame(uint16_t *frame_buffer) {
     }
 }
 
+static void mailbox_init() {
+    Mailbox_Params params;
+    Error_Block eb;
+
+    Error_init(&eb);
+    Mailbox_Params_init(&params);
+
+    mailbox = Mailbox_create(sizeof(frame), 5, &params, &eb);
+    if (mailbox == NULL) {
+        System_abort("Mailbox create failed");
+    }
+}
+
+void mailbox_receive_frame(frame_t *frame) {
+    Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
+}
+
 static void print_frame(uint16_t *frame) {
     for (int i = 0; i < GE_FRAME_SIZE; i++) {
         if (i < GE_FRAME_SIZE - 1) {
@@ -258,8 +285,7 @@ static void print_frame(uint16_t *frame) {
  */
 static void grideye_taskFxn (UArg a0, UArg a1)
 {
-    uint16_t frame[64];
-    DELAY_MS(8000);
+    DELAY_MS(5000);
     uartprintf("Starting task function...\r\n");
 
     setPin(Board_HDR_PORTF6, false);
@@ -271,10 +297,8 @@ static void grideye_taskFxn (UArg a0, UArg a1)
     grideye_set_mode(GE_MODE_NORMAL);
 
     while(1){
-//        double temp = grideye_get_ambient_temp();
-//        uartprintf("Temp: %f\r\n\r\n", temp);
         grideye_get_frame(frame);
-        print_frame(frame);
+        Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
         toggleLed(LED_PIN_TX);
         DELAY_MS(100);
     }
@@ -304,6 +328,8 @@ void grideyeService_createTask(void)
     taskParams.stack = grideyeTaskStack;
     taskParams.stackSize = GRIDEYE_TASK_STACK_SIZE;
     //taskParams.priority = GRIDEYE_TASK_PRIORITY;
+
+    mailbox_init();
 
     Task_construct(&grideyeTask, grideye_taskFxn, &taskParams, NULL);
 }

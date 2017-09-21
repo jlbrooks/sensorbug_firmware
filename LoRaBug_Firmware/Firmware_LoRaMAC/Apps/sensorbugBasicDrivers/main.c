@@ -37,6 +37,7 @@
 #include "Services/bmeService.h"
 #include "Services/bmxService.h"
 #include "Services/lightService.h"
+#include "Services/pcService.h"
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
@@ -1186,6 +1187,7 @@ int main(void)
     //bmxService_createTask();
     //lightService_createTask();
     grideyeService_createTask();
+    pcService_createTask();
 
     /* Open and setup pins */
     setuppins();
