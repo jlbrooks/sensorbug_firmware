@@ -1160,6 +1160,15 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
+void maintask2(UArg arg0, UArg arg1)
+{
+    BoardInitMcu( );
+    BoardInitPeriph( );
+    while (1) {
+        Task_yield();
+    }
+}
+
 /*
  *  ======== main ========
  */
@@ -1174,7 +1183,7 @@ int main(void)
     Board_initI2C();
     Board_initSPI();
     Board_initUART();
-    // Board_initWatchdog();
+    //Board_initWatchdog();
     ADC_init();
 
     /* Construct heartBeat Task  thread */
@@ -1182,7 +1191,7 @@ int main(void)
     taskParams.arg0 = 1000000 / Clock_tickPeriod;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr) maintask2, &taskParams, NULL);
 
     //bmxService_createTask();
     //lightService_createTask();

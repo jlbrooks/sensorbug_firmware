@@ -24,6 +24,8 @@
  * MACROS
  */
 
+#define MAX_QUEUE_LEN 20
+
 /*******************************************************************************
  * TYPEDEFS
  */
@@ -50,18 +52,22 @@ static uint16_t median_at_index(frame_queue_t *frames, uint16_t index);
  * PUBLIC FUNCTIONS
  */
 
-void frame_queue_init(frame_queue_t *queue, uint16_t size, uint16_t len) {
+void frame_queue_init(frame_queue_t *queue, frame_t *frames, uint16_t size, uint16_t len) {
+    queue->frames = frames;
     queue->elem_size = size;
     queue->max_len = len;
     queue->cur_len = 0;
 }
 
 bool frame_queue_full(frame_queue_t *queue) {
-    return (queue->cur_len == queue->max_len);
+    //uartputs("Checking\r\n");
+    bool result = queue->cur_len == queue->max_len;
+    //uartprintf("Full: %d\r\n", result);
+    return result;
 }
 
 frame_t frame_queue_get(frame_queue_t *queue, uint16_t i) {
-    if (i < 0 || i > queue->cur_len) {
+    if (i > queue->cur_len) {
         return NULL;
     }
 
@@ -69,6 +75,7 @@ frame_t frame_queue_get(frame_queue_t *queue, uint16_t i) {
 }
 
 void enqueue_frame(frame_queue_t *queue, frame_t new_frame) {
+    //uartprintf("Enqueuing, size=%d\r\n", queue->cur_len);
     // Copy new data into 0th frame
     for (int i = 0; i < queue->elem_size; i++) {
         queue->frames[0][i] = new_frame[i];
@@ -77,6 +84,7 @@ void enqueue_frame(frame_queue_t *queue, frame_t new_frame) {
     // Rotate queue pointers by 1
     frame_t newest_frame = queue->frames[0];
     for (int i = 0; i < queue->max_len - 1; i++) {
+        //uartprintf("%x->%x\r\n", queue->frames[i], queue->frames[i+1]);
         queue->frames[i] = queue->frames[i+1];
     }
 
@@ -84,6 +92,7 @@ void enqueue_frame(frame_queue_t *queue, frame_t new_frame) {
     if (queue->cur_len < queue->max_len) {
         queue->cur_len += 1;
     }
+    //uartputs("Done\r\n");
 }
 
 frame_t compute_median_frame(frame_queue_t *queue, frame_t frame_out) {
@@ -187,7 +196,7 @@ static int16_t partition(frame_t arr, uint16_t l, uint16_t h) {
  * @param[in]  h     Index to stop sorting from
  */
 static void quick_sort(frame_t arr, uint16_t l, uint16_t h) {
-    int16_t stack[h - l + 1];
+    int16_t stack[MAX_QUEUE_LEN];
     int16_t top = -1;
 
     stack[++top] = l;
@@ -211,7 +220,7 @@ static void quick_sort(frame_t arr, uint16_t l, uint16_t h) {
 }
 
 static uint16_t median_at_index(frame_queue_t *frames, uint16_t index) {
-    frame_elem_t temp_arr[frames->cur_len];
+    frame_elem_t temp_arr[MAX_QUEUE_LEN];
     // Copy all elements at index into temp
     for (int i = 0; i < frames->cur_len; i++) {
         temp_arr[i] = frames->frames[i][index];

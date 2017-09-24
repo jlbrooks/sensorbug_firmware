@@ -52,7 +52,7 @@ typedef struct frame_queue {
  * FUNCTIONS
  */
 
-void frame_queue_init(frame_queue_t *queue, uint16_t size, uint16_t len);
+void frame_queue_init(frame_queue_t *queue, frame_t *frames, uint16_t size, uint16_t len);
 
 bool frame_queue_full(frame_queue_t *queue);
 

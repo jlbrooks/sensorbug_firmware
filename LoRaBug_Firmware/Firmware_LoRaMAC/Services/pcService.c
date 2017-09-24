@@ -11,7 +11,7 @@
 
 #ifndef SERVICES_PCSERVICE_C_
 #define SERVICES_PCSERVICE_C_
-
+#define xdc_runtime_Log_DISABLE_ALL 1
 /*********************************************************************
  * INCLUDES
  */
@@ -43,10 +43,13 @@
  * CONSTANTS
  */
 #define PC_TASK_PRIORITY                     5
-#define PC_TASK_STACK_SIZE                   1200
+#define PC_TASK_STACK_SIZE                   2048
 
-#define NUM_RAW_FRAMES 15
-#define NUM_MEDIAN_FRAMES 7
+#define NUM_RAW_FRAMES 11
+#define NUM_MEDIAN_FRAMES 5
+
+#define MEDIAN_FRAME_CHUNK_SIZE ((NUM_MEDIAN_FRAMES) * (GE_FRAME_SIZE))
+#define RAW_FRAME_CHUNK_SIZE ((NUM_RAW_FRAMES) * (GE_FRAME_SIZE))
 
 #define NUM_TRIGGER_COLUMNS 2
 #define TRIGGER_INDEX (NUM_MEDIAN_FRAMES/2)
@@ -88,12 +91,31 @@ Char pcTaskStack[PC_TASK_STACK_SIZE];
 static frame_queue_t rawFrames;
 static frame_queue_t medianFrames;
 
+// Space for frame queues
+static frame_elem_t medianFrameChunks[MEDIAN_FRAME_CHUNK_SIZE];
+static frame_elem_t rawFrameChunks[RAW_FRAME_CHUNK_SIZE];
+
+// Allocate lists of pointers into the chunks
+static frame_t rawFramePtrs[NUM_RAW_FRAMES];
+static frame_t medianFramePtrs[NUM_MEDIAN_FRAMES];
+
 // Counter/config structs
 static pc_counter_t counter;
 static pc_config_t config;
 
 static uint32_t frame_count;
 static uint32_t last_frame_counted;
+
+// Local functions
+static void pc_new_frame(frame_t new_frame);
+static double pc_get_in_count(void);
+static double pc_get_out_count(void);
+static void counter_init(pc_counter_t *counter);
+static void config_init(pc_config_t *config);
+static bool within_threshold(int16_t current, int16_t next);
+static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col, int16_t offset);
+static void update_counter(void);
+
 
 static void pc_new_frame(frame_t new_frame) {
     enqueue_frame(&rawFrames, new_frame);
@@ -119,6 +141,9 @@ static void pc_new_frame(frame_t new_frame) {
     }
 
     // Reset counters
+    counter.count_updated = false;
+    counter.in_count = 0;
+    counter.out_count = 0;
 }
 
 static double pc_get_in_count(void) {
@@ -224,10 +249,20 @@ static void print_frame(uint16_t *frame) {
  * @return  None.
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
-    frame_elem_t frame[GE_FRAME_SIZE];
+    static frame_elem_t frame[GE_FRAME_SIZE];
+    DELAY_MS(5000);
+
     while (1) {
-        mailbox_receive_frame(&frame);
-        print_frame(&frame);
+        //uartputs("Starting to wait for frame...\r\n");
+        bool result = mailbox_receive_frame(frame);
+        //uartprintf("Got frame: %d\r\n", result);
+        //print_frame(frame);
+        pc_new_frame(frame);
+        //uartputs("Done new frame\r\n");
+        double in_count = pc_get_in_count();
+        double out_count = pc_get_out_count();
+
+        uartprintf("In: %f\r\nOut: %f\r\n", in_count, out_count);
     }
 }
 
@@ -255,8 +290,14 @@ void pcService_createTask(void)
     //taskParams.priority = GRIDEYE_TASK_PRIORITY;
 
     // Initialize frame queues
-    frame_queue_init(&rawFrames, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_RAW_FRAMES);
-    frame_queue_init(&medianFrames, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_MEDIAN_FRAMES);
+    for (int i = 0; i < NUM_RAW_FRAMES; i++) {
+        rawFramePtrs[i] = &rawFrameChunks[i * GE_FRAME_SIZE];
+    }
+    for (int i = 0; i < NUM_MEDIAN_FRAMES; i++) {
+        medianFramePtrs[i] = &medianFrameChunks[i * GE_FRAME_SIZE];
+    }
+    frame_queue_init(&rawFrames, rawFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_RAW_FRAMES);
+    frame_queue_init(&medianFrames, medianFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_MEDIAN_FRAMES);
     // Initialize counter/config
     counter_init(&counter);
     config_init(&config);

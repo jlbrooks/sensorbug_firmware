@@ -15,6 +15,7 @@
 /*********************************************************************
  * INCLUDES
  */
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -49,7 +50,7 @@
  */
 #define GRIDEYE_TASK_PRIORITY                     5
 
-#define GRIDEYE_TASK_STACK_SIZE                   2000
+#define GRIDEYE_TASK_STACK_SIZE                   2048
 
 
 #define LED_PIN_RX      Board_GLED
@@ -264,8 +265,8 @@ static void mailbox_init() {
     }
 }
 
-void mailbox_receive_frame(frame_t *frame) {
-    Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
+bool mailbox_receive_frame(frame_t *frame) {
+    return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
 }
 
 static void print_frame(uint16_t *frame) {
@@ -298,9 +299,10 @@ static void grideye_taskFxn (UArg a0, UArg a1)
 
     while(1){
         grideye_get_frame(frame);
+        //uartputs("Posting frame...\r\n");
         Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
         toggleLed(LED_PIN_TX);
-        DELAY_MS(100);
+        DELAY_MS(500);
     }
 
 }

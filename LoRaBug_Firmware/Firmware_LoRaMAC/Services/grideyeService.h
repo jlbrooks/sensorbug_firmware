@@ -21,6 +21,7 @@ extern "C"
  * INCLUDES
  */
 
+#include <stdbool.h>
 #include "pcFrameUtil.h"
 
 /*********************************************************************
@@ -52,7 +53,7 @@ extern "C"
  */
 extern void grideyeService_createTask(void);
 
-void mailbox_receive_frame(frame_t *frame);
+bool mailbox_receive_frame(frame_t *frame);
 
 
 /*********************************************************************
