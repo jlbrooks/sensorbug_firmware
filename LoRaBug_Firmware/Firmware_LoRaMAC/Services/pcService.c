@@ -45,8 +45,8 @@
 #define PC_TASK_PRIORITY                     5
 #define PC_TASK_STACK_SIZE                   2048
 
-#define NUM_RAW_FRAMES 11
-#define NUM_MEDIAN_FRAMES 5
+#define NUM_RAW_FRAMES 15
+#define NUM_MEDIAN_FRAMES 7
 
 #define MEDIAN_FRAME_CHUNK_SIZE ((NUM_MEDIAN_FRAMES) * (GE_FRAME_SIZE))
 #define RAW_FRAME_CHUNK_SIZE ((NUM_RAW_FRAMES) * (GE_FRAME_SIZE))

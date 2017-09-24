@@ -6,6 +6,7 @@
          Created on: Jul 6, 2017
 
  @author: Abhinand Sukumar
+ @author: Jacob Brooks
 
  ******************************************************************************/
 
@@ -68,6 +69,8 @@
 
 #define GE_CMD_INITIAL_RESET 0x3F
 #define GE_CMD_FLAG_RESET 0x30
+
+#define GE_MAILBOX_SIZE 1
 
 /*******************************************************************************
  * TYPEDEFS
@@ -259,7 +262,7 @@ static void mailbox_init() {
     Error_init(&eb);
     Mailbox_Params_init(&params);
 
-    mailbox = Mailbox_create(sizeof(frame), 5, &params, &eb);
+    mailbox = Mailbox_create(sizeof(frame), GE_MAILBOX_SIZE, &params, &eb);
     if (mailbox == NULL) {
         System_abort("Mailbox create failed");
     }
