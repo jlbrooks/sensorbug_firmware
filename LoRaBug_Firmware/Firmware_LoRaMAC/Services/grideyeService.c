@@ -305,7 +305,7 @@ static void grideye_taskFxn (UArg a0, UArg a1)
         //uartputs("Posting frame...\r\n");
         Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
         toggleLed(LED_PIN_TX);
-        DELAY_MS(500);
+        DELAY_MS(100);
     }
 
 }

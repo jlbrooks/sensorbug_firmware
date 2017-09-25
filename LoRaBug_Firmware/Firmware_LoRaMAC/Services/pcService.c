@@ -228,6 +228,19 @@ static void update_counter(void) {
         uint16_t trigger_col = config.trigger_column[i];
         uint16_t offset = config.trigger_check_offset[i];
         direction_t direction = determine_direction(TRIGGER_INDEX, trigger_col, offset);
+
+        if (last_frame_counted < frame_count - 2) {
+            switch (direction) {
+            case DIR_IN:
+                counter.in_count = counter.in_count + 0.5;
+                last_frame_counted = frame_count;
+                break;
+            case DIR_OUT:
+                counter.out_count = counter.out_count + 0.5;
+                last_frame_counted = frame_count;
+                break;
+            }
+        }
     }
 
     counter.count_updated = true;
