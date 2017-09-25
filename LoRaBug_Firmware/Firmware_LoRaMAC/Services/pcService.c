@@ -262,7 +262,10 @@ static void print_frame(uint16_t *frame) {
  * @return  None.
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
-    static frame_elem_t frame[GE_FRAME_SIZE];
+    frame_elem_t frame[GE_FRAME_SIZE];
+    double period_in_count = 0;
+    double period_out_count = 0;
+    double in_count, out_count;
     DELAY_MS(5000);
 
     while (1) {
@@ -272,10 +275,14 @@ static void pc_taskFxn(UArg a0, UArg a1) {
         //print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
-        double in_count = pc_get_in_count();
-        double out_count = pc_get_out_count();
+        in_count = pc_get_in_count();
+        out_count = pc_get_out_count();
 
-        uartprintf("In: %f\r\nOut: %f\r\n", in_count, out_count);
+        if (in_count > 0.0 || out_count > 0.0) {
+            period_in_count += in_count;
+            period_out_count += out_count;
+            uartprintf("In: %f\r\nOut: %f\r\n", period_in_count, period_out_count);
+        }
     }
 }
 
