@@ -5,7 +5,7 @@
 #include <Apps/sensorbugBasicDrivers/Commissioning.h>
 #include <Apps/sensorbugBasicDrivers/pb_decode.h>
 #include <Apps/sensorbugBasicDrivers/pb_encode.h>
-#include <Apps/sensorbugBasicDrivers/sensorbug.pb.h>
+#include <Apps/sensorbugBasicDrivers/occulow.pb.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
@@ -34,9 +34,6 @@
 #include "LoRaMac.h"
 
 #include "Services/grideyeService.h"
-//#include "Services/bmeService.h"
-//#include "Services/bmxService.h"
-//#include "Services/lightService.h"
 #include "Services/pcService.h"
 
 #include <ti/drivers/I2C.h>
@@ -217,21 +214,24 @@ static void PrepareTxFrame( uint8_t port )
     {
     case 2:
         //Get PIR status
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-        while((currTicks - startTicks) < 5000){
-            currTicks = Clock_getTicks();
-            pir_status = getPin(Board_HDR_ADIO6);
-            if(pir_status == 1)
-                break;
-        }
+        // startTicks = Clock_getTicks();
+        // currTicks = startTicks;
+        // while((currTicks - startTicks) < 5000){
+        //     currTicks = Clock_getTicks();
+        //     pir_status = getPin(Board_HDR_ADIO6);
+        //     if(pir_status == 1)
+        //         break;
+        // }
 
         //Prepare sensor readings to send over LoRa
-        SensorMessage message = SensorMessage_init_zero;
+        CountMessage message = CountMessage_init_zero;
 
         pb_ostream_t stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        status = pb_encode(&stream, SensorMessage_fields, &message);
+        message.count_in = 1;
+        message.count_out = 3;
+
+        status = pb_encode(&stream, CountMessage_fields, &message);
         message_length = stream.bytes_written;
 
         AppDataSize = message_length;
@@ -832,8 +832,6 @@ void maintask2(UArg arg0, UArg arg1)
  *  ======== main ========
  */
 int main(void)
-
-
 {
     Task_Params taskParams;
 
@@ -852,8 +850,6 @@ int main(void)
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    //bmxService_createTask();
-    //lightService_createTask();
     grideyeService_createTask();
     pcService_createTask();
 
