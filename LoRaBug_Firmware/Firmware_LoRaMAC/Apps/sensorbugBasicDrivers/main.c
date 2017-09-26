@@ -34,15 +34,15 @@
 #include "LoRaMac.h"
 
 #include "Services/grideyeService.h"
-#include "Services/bmeService.h"
-#include "Services/bmxService.h"
-#include "Services/lightService.h"
+//#include "Services/bmeService.h"
+//#include "Services/bmxService.h"
+//#include "Services/lightService.h"
 #include "Services/pcService.h"
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
 
-#define TASKSTACKSIZE   2048
+#define TASKSTACKSIZE   1024
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
@@ -196,117 +196,6 @@ struct ComplianceTest_s
     uint8_t NbGateways;
 }ComplianceTest;
 
-
-static int8_t user_i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
-{
-    //uartputs("i2c read called \r\n");
-    int8_t rslt = 0; //0 for success, non-zero for failure
-    I2C_Handle handle;
-    I2C_Params params;
-    I2C_Transaction i2cTrans1;
-
-    I2C_Params_init(&params);     // sets custom to NULL
-    params.transferMode = I2C_MODE_BLOCKING;
-    I2CCC26XX_I2CPinCfg pinCfg;
-    pinCfg.pinSDA = Board_I2C0_SDA0;
-    pinCfg.pinSCL = Board_I2C0_SCL0;
-    params.custom = &pinCfg;
-
-
-    handle = I2C_open(Board_I2C, &params);
-    if(!handle) {
-        rslt = -1;
-        uartputs("Read opening failed \r\n");
-    }
-    else {
-        i2cTrans1.slaveAddress = dev_id;
-        i2cTrans1.writeBuf = &reg_addr;
-        i2cTrans1.writeCount = 1;
-        i2cTrans1.readBuf = reg_data;
-        i2cTrans1.readCount = len;
-
-
-        //uartprintf("The provided slave address is : %x\r\n", dev_id);
-        //uartprintf("The register address being written is : %d \r\n", reg_addr);
-
-        bool status = false;
-        status = I2C_transfer(handle, &i2cTrans1);
-        setLed(Board_RLED, false);
-        setLed(Board_GLED, false);
-        if(!status) {
-            setLed(Board_RLED, true);
-            rslt = -1;
-            uartprintf("The read failed\r\n");
-        }
-        else {
-            setLed(Board_GLED, true);
-        }
-
-        I2C_close(handle);
-    }
-    //uartprintf("Done reading with result : %d \r\n", rslt);
-    return rslt;
-}
-
-
-
-static int8_t user_i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
-{
-    //uartputs("i2c write called \r\n");
-    int8_t rslt = 0; //0 for success, non-zero for failure
-    I2C_Handle handle;
-    I2C_Params params;
-    I2C_Transaction i2cTrans1;
-
-    I2C_Params_init(&params);     // sets custom to NULL
-    params.transferMode = I2C_MODE_BLOCKING;
-    I2CCC26XX_I2CPinCfg pinCfg;
-    pinCfg.pinSDA = Board_I2C0_SDA0;
-    pinCfg.pinSCL = Board_I2C0_SCL0;
-    params.custom = &pinCfg;
-
-
-    //uartprintf("The provided slave address is : %x\r\n", dev_id);
-    //uartprintf("The register address being written is : %d \r\n", reg_addr);
-
-    handle = I2C_open(Board_I2C, &params);
-    if(!handle) {
-        rslt = -1;
-        uartputs("Write opening failed \r\n");
-    }
-    else {
-        uint8_t *txBuf = malloc((len + 1) * sizeof(uint8_t));
-        i2cTrans1.slaveAddress = dev_id;
-        i2cTrans1.writeBuf = txBuf;
-        i2cTrans1.writeCount = len;
-        i2cTrans1.readBuf = NULL;
-        i2cTrans1.readCount = 0;
-        txBuf[0] = reg_addr;
-        for(int j = 0; j < len; j++)
-        {
-            txBuf[1 + j] = reg_data[j];
-        }
-
-        bool status = false;
-        status = I2C_transfer(handle, &i2cTrans1);
-        setLed(Board_RLED, false);
-        setLed(Board_GLED, false);
-        if(!status) {
-            rslt = -1;
-            uartputs("The transfer failed \r\n");
-            setLed(Board_RLED, true);
-        }
-        else {
-            //uartputs("The transfer was successful \r\n");
-            setLed(Board_GLED, true);
-        }
-        free(txBuf);
-        I2C_close(handle);
-    }
-    //uartprintf("Done writing with result : %d \r\n", rslt);
-    return rslt;
-}
-
 void user_delay_ms(uint32_t period)
 {
     DELAY_MS(period);
@@ -317,11 +206,9 @@ void user_delay_ms(uint32_t period)
  */
 static void PrepareTxFrame( uint8_t port )
 {
-    static uint32_t counter = 0;
-    uint32_t batteryVoltage = 0;
-    uint8_t batteryLevel = 0;
-
     size_t message_length;
+    uint32_t pir_status;
+    uint32_t startTicks,currTicks;
     bool status;
 
     printf("# PrepareTxFrame\n");
@@ -329,112 +216,6 @@ static void PrepareTxFrame( uint8_t port )
     switch( port )
     {
     case 2:
-
-        batteryVoltage = BoardGetBatteryVoltage();
-        batteryLevel = BoardGetBatteryLevel();
-
-        memset(AppData, '\0', sizeof(AppData));
-
-        // Copy Counter
-        memcpy(AppData, &counter, sizeof(counter));
-        AppDataSize = sizeof(counter);
-        counter++;
-
-        // Copy Battery Voltage
-        memcpy(AppData + AppDataSize, &batteryVoltage, sizeof(batteryVoltage));
-        AppDataSize += sizeof(batteryVoltage);
-
-        // Copy Battery Level
-        memcpy(AppData + AppDataSize, &batteryLevel, sizeof(batteryLevel));
-        AppDataSize += sizeof(batteryLevel);
-
-        //Insert your driver code here
-
-        //Getting MIC reading
-
-        setPin(Board_HDR_HDIO1, true);
-        //DELAY_MS(100);
-        ADC_Handle   adc, adc1;
-        ADC_Params   params, params1;
-        int_fast16_t res, res1;
-
-        ADC_Params_init(&params);
-        adc = ADC_open(2, &params);
-
-        if (adc == NULL) {
-            uartputs("Error initializing ADC channel \r\n");
-            DELAY_MS(100);
-            System_abort("Error initializing ADC channel \n");
-        }
-        else {
-            uartputs("ADC channel initialized\r\n");
-
-        }
-
-
-        uint16_t adcValue0, adcValue1;
-        uint16_t minV, maxV;
-
-        minV = 0xFFFF;
-        maxV = 0;
-
-        uint32_t currTicks, startTicks;
-
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-
-        while((currTicks - startTicks) < 5000) {
-            currTicks = Clock_getTicks();
-            res = ADC_convert(adc, &adcValue0);
-            if (res == ADC_STATUS_SUCCESS) {
-                if(maxV < adcValue0)
-                    maxV = adcValue0;
-                if(minV > adcValue0)
-                    minV = adcValue0;
-            }
-            else {
-                uartprintf("ADC channel convert failed \r\n");
-            }
-
-        }
-        ADC_close(adc);
-
-        ADC_Params_init(&params1);
-        adc = ADC_open(0, &params1);
-
-        if (adc == NULL) {
-            uartputs("Error initializing ADC channel \r\n");
-            DELAY_MS(100);
-            System_abort("Error initializing ADC channel \n");
-        }
-        else {
-            uartputs("ADC channel initialized\r\n");
-
-        }
-
-
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-        uint32_t lightAvg = 0, count = 0;
-
-
-        while((currTicks - startTicks) < 5000) {
-            currTicks = Clock_getTicks();
-            res = ADC_convert(adc, &adcValue1);
-            if (res == ADC_STATUS_SUCCESS) {
-                lightAvg += adcValue1;
-                count++;
-            }
-            else {
-                uartprintf("ADC channel convert failed \r\n");
-            }
-
-        }
-        ADC_close(adc);
-        lightAvg = lightAvg/count;
-
-        uint32_t pir_status;
-
         //Get PIR status
         startTicks = Clock_getTicks();
         currTicks = startTicks;
@@ -445,131 +226,10 @@ static void PrepareTxFrame( uint8_t port )
                 break;
         }
 
-        //Get BME readings
-        struct bme680_dev gas_sensor;
-
-        //Configuring I2C communication interface
-        gas_sensor.dev_id = BME680_I2C_ADDR_SECONDARY;
-        gas_sensor.intf = BME680_I2C_INTF;
-        gas_sensor.read = user_i2c_read;
-        gas_sensor.write = user_i2c_write;
-        gas_sensor.delay_ms = user_delay_ms;
-
-
-        //Initializing object to default values
-        int8_t rslt = BME680_OK;
-        rslt = bme680_init(&gas_sensor);
-        if(rslt != BME680_OK)
-            uartprintf("Initialization failed with error code : %d \r\n", rslt);
-
-        uint8_t set_required_settings;
-
-        /* Set the temperature, pressure and humidity settings */
-        gas_sensor.tph_sett.os_hum = BME680_OS_2X;
-        gas_sensor.tph_sett.os_pres = BME680_OS_4X;
-        gas_sensor.tph_sett.os_temp = BME680_OS_8X;
-        gas_sensor.tph_sett.filter = BME680_FILTER_SIZE_3;
-
-        /* Set the remaining gas sensor settings and link the heating profile */
-        gas_sensor.gas_sett.run_gas = BME680_ENABLE_GAS_MEAS;
-        /* Create a ramp heat waveform in 3 steps */
-        gas_sensor.gas_sett.heatr_temp = 320; /* degree Celsius */
-        gas_sensor.gas_sett.heatr_dur = 150; /* milliseconds */
-
-        /* Select the power mode */
-        /* Must be set before writing the sensor configuration */
-        gas_sensor.power_mode = BME680_FORCED_MODE;
-
-        /* Set the required sensor settings needed */
-        set_required_settings = BME680_OST_SEL | BME680_OSP_SEL | BME680_OSH_SEL | BME680_FILTER_SEL
-            | BME680_GAS_SENSOR_SEL;
-
-        /* Set the desired sensor configuration */
-        rslt = bme680_set_sensor_settings(set_required_settings,&gas_sensor);
-        if(rslt != 0) {
-            setLed(Board_RLED, true);
-            uartprintf("sensor settings failed with error code : %d\r\n", rslt);
-        }
-
-
-        /* Set the power mode */
-        rslt = bme680_set_sensor_mode(&gas_sensor);
-        if(rslt != 0) {
-            setLed(Board_RLED, true);
-            uartprintf("power mode setting failed with error code : %d \r\n", rslt);
-        }
-
-
-        /* Get the total measurement duration so as to sleep or wait till the
-         * measurement is complete */
-        uint16_t meas_period;
-        bme680_get_profile_dur(&meas_period, &gas_sensor);
-        DELAY_MS(meas_period); /* Delay till the measurement is ready */
-
-        struct bme680_field_data data;
-//        while(1) {
-//            rslt = bme680_get_sensor_data(&data, &gas_sensor);
-//            if(rslt != 0) {
-//                setLed(Board_RLED, true);
-//                uartprintf("Getting sensor data failed with error code : %d \r\n", rslt);
-//            }
-//
-//            uartprintf("T: %.2f degC, P: %.2f hPa, H %.2f %%rH ", data.temperature / 100.0f,
-//                data.pressure / 100.0f, data.humidity / 1000.0f );
-//            /* Avoid using measurements from an unstable heating setup */
-//            if(data.status & BME680_HEAT_STAB_MSK)
-//                uartprintf(", G: %d ohms", data.gas_resistance);
-//
-//            uartprintf("\r\n");
-//            if(!rslt)
-//                break;
-//        }
-
         //Prepare sensor readings to send over LoRa
         SensorMessage message = SensorMessage_init_zero;
 
         pb_ostream_t stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
-
-        message.has_mic = true;
-        message.mic = maxV - minV;
-
-        message.has_pir_status = true;
-        message.pir_status = pir_status;
-
-        message.has_light = true;
-        message.light = lightAvg;
-
-        uint32_t bmxData[20];
-        getBmxData(bmxData);
-
-        message.has_accelz = true;
-        message.accelz = (bmxData[19] << 8) | bmxData[18];
-
-        message.has_accely = true;
-        message.accely = (bmxData[17] << 8) | bmxData[16];
-
-        message.has_accelx = true;
-        message.accelx = (bmxData[15] << 8) | bmxData[14];
-
-        message.has_gyrz = true;
-        message.gyrz = (bmxData[13] << 8) | bmxData[12];
-
-        message.has_gyry = true;
-        message.gyry = (bmxData[11] << 8) | bmxData[10];
-
-        message.has_gyrx = true;
-        message.gyrx = (bmxData[9] << 8) | bmxData[8];
-
-
-        message.has_magz = true;
-        message.magz = (bmxData[5] << 8) | bmxData[4];
-
-        message.has_magy = true;
-        message.magy = (bmxData[3] << 8) | bmxData[2];
-
-        message.has_magx = true;
-        message.magx = (bmxData[1] << 8) | bmxData[0];
-
 
         status = pb_encode(&stream, SensorMessage_fields, &message);
         message_length = stream.bytes_written;
@@ -579,7 +239,6 @@ static void PrepareTxFrame( uint8_t port )
         if(!status) {
             printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
         }
-
 
         break;
 
@@ -1191,7 +850,7 @@ int main(void)
     taskParams.arg0 = 1000000 / Clock_tickPeriod;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask2, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
     //bmxService_createTask();
     //lightService_createTask();
