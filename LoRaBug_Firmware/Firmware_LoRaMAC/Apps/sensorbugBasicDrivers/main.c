@@ -34,12 +34,12 @@
 #include "LoRaMac.h"
 
 #include "Services/grideyeService.h"
-#include "Services/pcService.h"
+//#include "Services/pcService.h"
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
 
-#define TASKSTACKSIZE   1024
+#define TASKSTACKSIZE   2048
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
@@ -198,6 +198,14 @@ void user_delay_ms(uint32_t period)
     DELAY_MS(period);
 }
 
+void debug_print(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    uartprintf(format, args);
+    printf(format, args);
+    va_end(args);
+}
+
 /*!
  * \brief   Prepares the payload of the frame
  */
@@ -208,7 +216,7 @@ static void PrepareTxFrame( uint8_t port )
     uint32_t startTicks,currTicks;
     bool status;
 
-    printf("# PrepareTxFrame\n");
+    debug_print("# PrepareTxFrame\r\n");
 
     switch( port )
     {
@@ -237,7 +245,7 @@ static void PrepareTxFrame( uint8_t port )
         AppDataSize = message_length;
 
         if(!status) {
-            printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+            debug_print("Encoding failed: %s\n", PB_GET_ERROR(&stream));
         }
 
         break;
@@ -282,7 +290,7 @@ static bool SendFrame( void )
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
 
-    printf("# SendFrame\n");
+    debug_print("# SendFrame\r\n");
 
     if( LoRaMacQueryTxPossible( AppDataSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
@@ -325,7 +333,7 @@ static bool SendFrame( void )
  */
 static void OnTxNextPacketTimerEvent( void )
 {
-    printf("# OnTxNextPacketTimerEvent\n");
+    debug_print("# OnTxNextPacketTimerEvent\r\n");
     MibRequestConfirm_t mibReq;
     LoRaMacStatus_t status;
 
@@ -333,6 +341,7 @@ static void OnTxNextPacketTimerEvent( void )
 
     mibReq.Type = MIB_NETWORK_JOINED;
     status = LoRaMacMibGetRequestConfirm( &mibReq );
+    debug_print("Status: %s\r\n", status);
 
     if( status == LORAMAC_STATUS_OK )
     {
@@ -388,8 +397,7 @@ static void OnLed4TimerEvent( void )
  */
 static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 {
-    printf("# McpsConfirm\n");
-    uartputs("# McpsConfirm\n");
+    debug_print("# McpsConfirm\r\n");
     if( mcpsConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
     {
         switch( mcpsConfirm->McpsRequest )
@@ -421,7 +429,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
         // Switch LED 1 ON
 //        GpioWrite( &Led1, 0 );
         setLed(Board_GLED, 1);
-        TimerStart( &Led1Timer );
+        //TimerStart( &Led1Timer );
     }
     NextTx = true;
 }
@@ -434,7 +442,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
  */
 static void McpsIndication( McpsIndication_t *mcpsIndication )
 {
-    printf("# McpsIndication\n");
+    debug_print("# McpsIndication\r\n");
     if( mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK )
     {
         return;
@@ -444,12 +452,12 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     {
         case MCPS_UNCONFIRMED:
         {
-            uartputs("# Got McpsIndication: MCPS_UNCONFIRMED\n");
+            debug_print("# Got McpsIndication: MCPS_UNCONFIRMED\n");
             break;
         }
         case MCPS_CONFIRMED:
         {
-            uartputs("# Got McpsIndication: MCPS_CONFIRMED\n");
+            debug_print("# Got McpsIndication: MCPS_CONFIRMED\n");
             break;
         }
         case MCPS_PROPRIETARY:
@@ -614,7 +622,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     // Switch LED 2 ON for each received downlink
 //    GpioWrite( &Led2, 0 );
     setLed(Board_RLED, 1);
-    TimerStart( &Led2Timer );
+    //TimerStart( &Led2Timer );
 }
 
 /*!
@@ -625,27 +633,30 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
  */
 static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 {
-    printf("# MlmeConfirm\n");
+    debug_print("# MlmeConfirm\r\n");
     switch( mlmeConfirm->MlmeRequest )
     {
         case MLME_JOIN:
         {
-            printf("# MlmeConfirm: Join\n");
+            debug_print("# MlmeConfirm: Join\r\n");
+            debug_print("# Status: %d\r\n", (int)mlmeConfirm->Status);
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Status is OK, node has joined the network
+                debug_print("# Got OK status\r\n");
                 DeviceState = DEVICE_STATE_SEND;
             }
             else
             {
                 // Join was not successful. Try to join again
+                debug_print("# Not successful\r\n");
                 DeviceState = DEVICE_STATE_JOIN;
             }
             break;
         }
         case MLME_LINK_CHECK:
         {
-            printf("# MlmeConfirm: Link Check\n");
+            debug_print("# MlmeConfirm: Link Check\n");
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Check DemodMargin
@@ -673,7 +684,8 @@ void maintask(UArg arg0, UArg arg1)
 
     BoardInitMcu( );
     BoardInitPeriph( );
-    printf("# Board initialized\n");
+    DELAY_MS(2000);
+    debug_print("# Board initialized\r\n");
 
     DeviceState = DEVICE_STATE_INIT;
 
@@ -683,7 +695,7 @@ void maintask(UArg arg0, UArg arg1)
         {
             case DEVICE_STATE_INIT:
             {
-                printf("# DeviceState: DEVICE_STATE_INIT\n");
+                debug_print("# DeviceState: DEVICE_STATE_INIT\r\n");
                 LoRaMacPrimitives.MacMcpsConfirm = McpsConfirm;
                 LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
                 LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
@@ -692,14 +704,14 @@ void maintask(UArg arg0, UArg arg1)
 
                 TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
 
-                TimerInit( &Led1Timer, OnLed1TimerEvent );
-                TimerSetValue( &Led1Timer, 25 );
+                //TimerInit( &Led1Timer, OnLed1TimerEvent );
+                //TimerSetValue( &Led1Timer, 25 );
 
-                TimerInit( &Led2Timer, OnLed2TimerEvent );
-                TimerSetValue( &Led2Timer, 25 );
+                //TimerInit( &Led2Timer, OnLed2TimerEvent );
+                //TimerSetValue( &Led2Timer, 25 );
 
-                TimerInit( &Led4Timer, OnLed4TimerEvent );
-                TimerSetValue( &Led4Timer, 25 );
+                //TimerInit( &Led4Timer, OnLed4TimerEvent );
+                //TimerSetValue( &Led4Timer, 25 );
 
                 mibReq.Type = MIB_ADR;
                 mibReq.Param.AdrEnable = LORAWAN_ADR_ON;
@@ -714,7 +726,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_JOIN:
             {
-                printf("# DeviceState: DEVICE_STATE_JOIN\n");
+                debug_print("# DeviceState: DEVICE_STATE_JOIN\r\n");
 #if( OVER_THE_AIR_ACTIVATION != 0 )
                 MlmeReq_t mlmeReq;
 
@@ -730,7 +742,8 @@ void maintask(UArg arg0, UArg arg1)
 
                 if( NextTx == true )
                 {
-                    LoRaMacMlmeRequest( &mlmeReq );
+                    LoRaMacStatus_t status = LoRaMacMlmeRequest( &mlmeReq );
+                    //debug_print("Result\r\n");
                 }
                 DeviceState = DEVICE_STATE_SLEEP;
 #else
@@ -770,7 +783,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SEND:
             {
-                printf("# DeviceState: DEVICE_STATE_SEND\n");
+                debug_print("# DeviceState: DEVICE_STATE_SEND\r\n");
                 if( NextTx == true )
                 {
                     PrepareTxFrame( AppPort );
@@ -792,7 +805,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_CYCLE:
             {
-                printf("# DeviceState: DEVICE_STATE_CYCLE\n");
+                debug_print("# DeviceState: DEVICE_STATE_CYCLE\r\n");
                 DeviceState = DEVICE_STATE_SLEEP;
 
                 // Schedule next packet transmission
@@ -804,9 +817,9 @@ void maintask(UArg arg0, UArg arg1)
             {
                // printf("# DeviceState: DEVICE_STATE_SLEEP\n");
                 // Wake up through events
-//                TimerLowPowerHandler( );
-                Task_sleep(TIME_MS * 10);
-//                Task_yield();
+                //TimerLowPowerHandler( );
+                //Task_sleep(TIME_MS * 10);
+                //Task_yield();
                 break;
             }
             default:
@@ -850,8 +863,8 @@ int main(void)
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    grideyeService_createTask();
-    pcService_createTask();
+    //grideyeService_createTask();
+    //pcService_createTask();
 
     /* Open and setup pins */
     setuppins();
