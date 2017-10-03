@@ -201,8 +201,8 @@ void user_delay_ms(uint32_t period)
 void debug_print(const char *format, ...) {
     va_list args;
     va_start(args, format);
-    uartprintf(format, args);
-    printf(format, args);
+    //uartprintf(format, args);
+    vprintf(format, args);
     va_end(args);
 }
 
@@ -214,9 +214,11 @@ static void PrepareTxFrame( uint8_t port )
     size_t message_length;
     uint32_t pir_status;
     uint32_t startTicks,currTicks;
+    CountMessage message = CountMessage_init_zero;
+    pb_ostream_t stream;
     bool status;
 
-    debug_print("# PrepareTxFrame\r\n");
+    uartprintf("# PrepareTxFrame\r\n");
 
     switch( port )
     {
@@ -232,9 +234,8 @@ static void PrepareTxFrame( uint8_t port )
         // }
 
         //Prepare sensor readings to send over LoRa
-        CountMessage message = CountMessage_init_zero;
 
-        pb_ostream_t stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
+        stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
         message.count_in = 1;
         message.count_out = 3;
@@ -245,7 +246,7 @@ static void PrepareTxFrame( uint8_t port )
         AppDataSize = message_length;
 
         if(!status) {
-            debug_print("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+            uartprintf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
         }
 
         break;
@@ -290,7 +291,7 @@ static bool SendFrame( void )
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
 
-    debug_print("# SendFrame\r\n");
+    uartprintf("# SendFrame\r\n");
 
     if( LoRaMacQueryTxPossible( AppDataSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
@@ -333,7 +334,7 @@ static bool SendFrame( void )
  */
 static void OnTxNextPacketTimerEvent( void )
 {
-    debug_print("# OnTxNextPacketTimerEvent\r\n");
+    uartprintf("# OnTxNextPacketTimerEvent\r\n");
     MibRequestConfirm_t mibReq;
     LoRaMacStatus_t status;
 
@@ -341,7 +342,7 @@ static void OnTxNextPacketTimerEvent( void )
 
     mibReq.Type = MIB_NETWORK_JOINED;
     status = LoRaMacMibGetRequestConfirm( &mibReq );
-    debug_print("Status: %s\r\n", status);
+    uartprintf("Status: %d\r\n", (int)status);
 
     if( status == LORAMAC_STATUS_OK )
     {
@@ -397,7 +398,7 @@ static void OnLed4TimerEvent( void )
  */
 static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 {
-    debug_print("# McpsConfirm\r\n");
+    uartprintf("# McpsConfirm\r\n");
     if( mcpsConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
     {
         switch( mcpsConfirm->McpsRequest )
@@ -429,7 +430,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
         // Switch LED 1 ON
 //        GpioWrite( &Led1, 0 );
         setLed(Board_GLED, 1);
-        //TimerStart( &Led1Timer );
+        TimerStart( &Led1Timer );
     }
     NextTx = true;
 }
@@ -442,7 +443,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
  */
 static void McpsIndication( McpsIndication_t *mcpsIndication )
 {
-    debug_print("# McpsIndication\r\n");
+    uartprintf("# McpsIndication\r\n");
     if( mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK )
     {
         return;
@@ -452,12 +453,12 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     {
         case MCPS_UNCONFIRMED:
         {
-            debug_print("# Got McpsIndication: MCPS_UNCONFIRMED\n");
+            uartprintf("# Got McpsIndication: MCPS_UNCONFIRMED\n");
             break;
         }
         case MCPS_CONFIRMED:
         {
-            debug_print("# Got McpsIndication: MCPS_CONFIRMED\n");
+            uartprintf("# Got McpsIndication: MCPS_CONFIRMED\n");
             break;
         }
         case MCPS_PROPRIETARY:
@@ -622,7 +623,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     // Switch LED 2 ON for each received downlink
 //    GpioWrite( &Led2, 0 );
     setLed(Board_RLED, 1);
-    //TimerStart( &Led2Timer );
+    TimerStart( &Led2Timer );
 }
 
 /*!
@@ -633,30 +634,29 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
  */
 static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 {
-    debug_print("# MlmeConfirm\r\n");
     switch( mlmeConfirm->MlmeRequest )
     {
         case MLME_JOIN:
         {
-            debug_print("# MlmeConfirm: Join\r\n");
-            debug_print("# Status: %d\r\n", (int)mlmeConfirm->Status);
+            uartprintf("# MlmeConfirm: Join\r\n");
+            uartprintf("# Mlme status: %d\r\n", (int)mlmeConfirm->Status);
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Status is OK, node has joined the network
-                debug_print("# Got OK status\r\n");
+                uartprintf("# Got OK status\r\n");
                 DeviceState = DEVICE_STATE_SEND;
             }
             else
             {
                 // Join was not successful. Try to join again
-                debug_print("# Not successful\r\n");
+                uartprintf("# Not successful\r\n");
                 DeviceState = DEVICE_STATE_JOIN;
             }
             break;
         }
         case MLME_LINK_CHECK:
         {
-            debug_print("# MlmeConfirm: Link Check\n");
+            uartprintf("# MlmeConfirm: Link Check\n");
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Check DemodMargin
@@ -684,8 +684,8 @@ void maintask(UArg arg0, UArg arg1)
 
     BoardInitMcu( );
     BoardInitPeriph( );
-    DELAY_MS(2000);
-    debug_print("# Board initialized\r\n");
+    DELAY_MS(5000);
+    uartprintf("# Board initialized\r\n");
 
     DeviceState = DEVICE_STATE_INIT;
 
@@ -695,7 +695,7 @@ void maintask(UArg arg0, UArg arg1)
         {
             case DEVICE_STATE_INIT:
             {
-                debug_print("# DeviceState: DEVICE_STATE_INIT\r\n");
+                uartprintf("# DeviceState: DEVICE_STATE_INIT\r\n");
                 LoRaMacPrimitives.MacMcpsConfirm = McpsConfirm;
                 LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
                 LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
@@ -704,14 +704,14 @@ void maintask(UArg arg0, UArg arg1)
 
                 TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
 
-                //TimerInit( &Led1Timer, OnLed1TimerEvent );
-                //TimerSetValue( &Led1Timer, 25 );
+                TimerInit( &Led1Timer, OnLed1TimerEvent );
+                TimerSetValue( &Led1Timer, 25 );
 
-                //TimerInit( &Led2Timer, OnLed2TimerEvent );
-                //TimerSetValue( &Led2Timer, 25 );
+                TimerInit( &Led2Timer, OnLed2TimerEvent );
+                TimerSetValue( &Led2Timer, 25 );
 
-                //TimerInit( &Led4Timer, OnLed4TimerEvent );
-                //TimerSetValue( &Led4Timer, 25 );
+                TimerInit( &Led4Timer, OnLed4TimerEvent );
+                TimerSetValue( &Led4Timer, 25 );
 
                 mibReq.Type = MIB_ADR;
                 mibReq.Param.AdrEnable = LORAWAN_ADR_ON;
@@ -726,7 +726,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_JOIN:
             {
-                debug_print("# DeviceState: DEVICE_STATE_JOIN\r\n");
+                uartprintf("# DeviceState: DEVICE_STATE_JOIN\r\n");
 #if( OVER_THE_AIR_ACTIVATION != 0 )
                 MlmeReq_t mlmeReq;
 
@@ -738,12 +738,12 @@ void maintask(UArg arg0, UArg arg1)
                 mlmeReq.Req.Join.DevEui = DevEui;
                 mlmeReq.Req.Join.AppEui = AppEui;
                 mlmeReq.Req.Join.AppKey = AppKey;
-                mlmeReq.Req.Join.NbTrials = 3;
+                mlmeReq.Req.Join.NbTrials = 6;
 
                 if( NextTx == true )
                 {
                     LoRaMacStatus_t status = LoRaMacMlmeRequest( &mlmeReq );
-                    //debug_print("Result\r\n");
+                    uartprintf("Result: %d\r\n", (int)status);
                 }
                 DeviceState = DEVICE_STATE_SLEEP;
 #else
@@ -783,7 +783,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SEND:
             {
-                debug_print("# DeviceState: DEVICE_STATE_SEND\r\n");
+                uartprintf("# DeviceState: DEVICE_STATE_SEND\r\n");
                 if( NextTx == true )
                 {
                     PrepareTxFrame( AppPort );
@@ -805,7 +805,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_CYCLE:
             {
-                debug_print("# DeviceState: DEVICE_STATE_CYCLE\r\n");
+                uartprintf("# DeviceState: DEVICE_STATE_CYCLE\r\n");
                 DeviceState = DEVICE_STATE_SLEEP;
 
                 // Schedule next packet transmission
@@ -818,7 +818,7 @@ void maintask(UArg arg0, UArg arg1)
                // printf("# DeviceState: DEVICE_STATE_SLEEP\n");
                 // Wake up through events
                 //TimerLowPowerHandler( );
-                //Task_sleep(TIME_MS * 10);
+                Task_sleep(TIME_MS * 10);
                 //Task_yield();
                 break;
             }
