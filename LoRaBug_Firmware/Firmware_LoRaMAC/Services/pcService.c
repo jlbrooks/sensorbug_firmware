@@ -42,7 +42,7 @@
  * CONSTANTS
  */
 #define PC_TASK_PRIORITY                     5
-#define PC_TASK_STACK_SIZE                   1800
+#define PC_TASK_STACK_SIZE                   2048
 
 #define NUM_RAW_FRAMES 11
 #define NUM_MEDIAN_FRAMES 5
@@ -117,11 +117,11 @@ static void update_counter(void);
 
 
 static void pc_new_frame(frame_t new_frame) {
+    static frame_elem_t median_filtered_frame[GE_FRAME_SIZE];
     enqueue_frame(&rawFrames, new_frame);
 
     // Compute and enqueue new frame
     if (frame_queue_full(&rawFrames)) {
-        frame_elem_t median_filtered_frame[GE_FRAME_SIZE];
         compute_median_frame(&rawFrames, median_filtered_frame);
 
         // Subtract median from the new frame
@@ -261,7 +261,7 @@ static void print_frame(uint16_t *frame) {
  * @return  None.
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
-    frame_elem_t frame[GE_FRAME_SIZE];
+    static frame_elem_t frame[GE_FRAME_SIZE];
     double period_in_count = 0;
     double period_out_count = 0;
     double in_count, out_count;
@@ -270,7 +270,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     while (1) {
         //uartputs("Starting to wait for frame...\r\n");
         bool result = mailbox_receive_frame(frame);
-        //uartprintf("Got frame: %d\r\n", result);
+        uartprintf("Got frame: %d\r\n", result);
         //print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");

@@ -34,7 +34,7 @@
 #include "LoRaMac.h"
 
 #include "Services/grideyeService.h"
-//#include "Services/pcService.h"
+#include "Services/pcService.h"
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
@@ -198,22 +198,14 @@ void user_delay_ms(uint32_t period)
     DELAY_MS(period);
 }
 
-void debug_print(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-    //uartprintf(format, args);
-    vprintf(format, args);
-    va_end(args);
-}
-
 /*!
  * \brief   Prepares the payload of the frame
  */
 static void PrepareTxFrame( uint8_t port )
 {
     size_t message_length;
-    uint32_t pir_status;
-    uint32_t startTicks,currTicks;
+    //uint32_t pir_status;
+    //uint32_t startTicks,currTicks;
     CountMessage message = CountMessage_init_zero;
     pb_ostream_t stream;
     bool status;
@@ -246,7 +238,7 @@ static void PrepareTxFrame( uint8_t port )
         AppDataSize = message_length;
 
         if(!status) {
-            uartprintf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+            uartprintf("Encoding failed: %s\r\n", PB_GET_ERROR(&stream));
         }
 
         break;
@@ -832,15 +824,6 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
-void maintask2(UArg arg0, UArg arg1)
-{
-    BoardInitMcu( );
-    BoardInitPeriph( );
-    while (1) {
-        Task_yield();
-    }
-}
-
 /*
  *  ======== main ========
  */
@@ -863,8 +846,8 @@ int main(void)
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    //grideyeService_createTask();
-    //pcService_createTask();
+    grideyeService_createTask();
+    pcService_createTask();
 
     /* Open and setup pins */
     setuppins();

@@ -50,7 +50,7 @@
  */
 #define GRIDEYE_TASK_PRIORITY                     5
 
-#define GRIDEYE_TASK_STACK_SIZE                   1800
+#define GRIDEYE_TASK_STACK_SIZE                   2048
 
 
 #define LED_PIN_RX      Board_GLED
