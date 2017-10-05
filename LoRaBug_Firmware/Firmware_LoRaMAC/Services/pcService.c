@@ -19,6 +19,7 @@
 #include <stdbool.h>
 
 #include <xdc/runtime/System.h>
+#include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Semaphore.h>
@@ -229,15 +230,15 @@ static void update_counter(void) {
         if (last_frame_counted < frame_count - 2) {
             switch (direction) {
             case DIR_IN:
-                Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
+                Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
                 counter.in_count = counter.in_count + 0.5;
-                Semaphore_post(Semaphore_Handle(&count_sem));
+                Semaphore_post(Semaphore_handle(&count_sem));
                 last_frame_counted = frame_count;
                 break;
             case DIR_OUT:
-                Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
+                Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
                 counter.out_count = counter.out_count + 0.5;
-                Semaphore_post(Semaphore_Handle(&count_sem));
+                Semaphore_post(Semaphore_handle(&count_sem));
                 last_frame_counted = frame_count;
                 break;
             }
@@ -279,8 +280,6 @@ static void pc_taskFxn(UArg a0, UArg a1) {
         in_count = pc_get_in_count();
         out_count = pc_get_out_count();
 
-        set_counts(in_count, out_count);
-
         if (in_count > 0.0 || out_count > 0.0) {
             period_in_count += in_count;
             period_out_count += out_count;
@@ -295,10 +294,10 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
 
 void pc_get_counts(pc_counter_t *out_counter) {
-    Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
+    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     out_counter->in_count = counter.in_count;
     out_counter->out_count = counter.out_count;
-    Semaphore_post(Semaphore_Handle(&count_sem));
+    Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
