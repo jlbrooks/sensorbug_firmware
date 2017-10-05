@@ -68,6 +68,12 @@ typedef struct {
     int16_t trigger_check_offset[2];  //< Offsets to check for direction
 } pc_config_t;
 
+typedef struct pc_internal_counter {
+    double in_count;  //< Number of counts going in
+    double out_count;  //< Number of counts going out
+    bool count_updated;  //< Whether or not the count has been updated since the last new frame
+} pc_internal_counter_t;
+
 typedef enum {DIR_IN, DIR_OUT, DIR_NONE} direction_t;
 
 /*******************************************************************************
@@ -95,6 +101,7 @@ static frame_t rawFramePtrs[NUM_RAW_FRAMES];
 static frame_t medianFramePtrs[NUM_MEDIAN_FRAMES];
 
 // Counter/config structs
+static pc_internal_counter_t internal_counter;
 static pc_counter_t counter;
 static pc_config_t config;
 
@@ -109,10 +116,12 @@ static void pc_new_frame(frame_t new_frame);
 static double pc_get_in_count(void);
 static double pc_get_out_count(void);
 static void counter_init(pc_counter_t *counter);
+static void internal_counter_init(pc_internal_counter_t *counter);
 static void config_init(pc_config_t *config);
 static bool within_threshold(int16_t current, int16_t next);
 static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col, int16_t offset);
-static void update_counter(void);
+static void update_internal_counter(void);
+static void pc_update_counts(double count_in, double count_out);
 
 
 static void pc_new_frame(frame_t new_frame) {
@@ -139,32 +148,38 @@ static void pc_new_frame(frame_t new_frame) {
     }
 
     // Reset counters
-    counter.count_updated = false;
-    counter.in_count = 0;
-    counter.out_count = 0;
+    internal_counter.count_updated = false;
+    internal_counter.in_count = 0;
+    internal_counter.out_count = 0;
 }
 
 static double pc_get_in_count(void) {
-    if (!counter.count_updated) {
-        update_counter();
+    if (!internal_counter.count_updated) {
+        update_internal_counter();
     }
 
-    return counter.in_count;
+    return internal_counter.in_count;
 }
 
 static double pc_get_out_count(void) {
-    if (!counter.count_updated) {
-        update_counter();
+    if (!internal_counter.count_updated) {
+        update_internal_counter();
     }
 
-    return counter.out_count;
+    return internal_counter.out_count;
 }
 
-static void counter_init(pc_counter_t *counter)
+static void internal_counter_init(pc_internal_counter_t *c)
 {
-    counter->in_count = 0;
-    counter->out_count = 0;
-    counter->count_updated = false;
+    c->in_count = 0;
+    c->out_count = 0;
+    c->count_updated = false;
+}
+
+static void counter_init(pc_counter_t *c)
+{
+    c->in_count = 0;
+    c->out_count = 0;
 }
 
 static void config_init(pc_config_t *config) {
@@ -216,9 +231,9 @@ static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col
     return DIR_NONE;
 }
 
-static void update_counter(void) {
+static void update_internal_counter(void) {
     // Exit early if count has already been updated or the buffer isn't full
-    if (!frame_queue_full(&rawFrames) || counter.count_updated) {
+    if (!frame_queue_full(&rawFrames) || internal_counter.count_updated) {
         return;
     }
 
@@ -230,22 +245,18 @@ static void update_counter(void) {
         if (last_frame_counted < frame_count - 2) {
             switch (direction) {
             case DIR_IN:
-                Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
-                counter.in_count = counter.in_count + 0.5;
-                Semaphore_post(Semaphore_handle(&count_sem));
+                internal_counter.in_count = counter.in_count + 0.5;
                 last_frame_counted = frame_count;
                 break;
             case DIR_OUT:
-                Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
-                counter.out_count = counter.out_count + 0.5;
-                Semaphore_post(Semaphore_handle(&count_sem));
+                internal_counter.out_count = counter.out_count + 0.5;
                 last_frame_counted = frame_count;
                 break;
             }
         }
     }
 
-    counter.count_updated = true;
+    internal_counter.count_updated = true;
 }
 
 static void print_frame(uint16_t *frame) {
@@ -265,27 +276,33 @@ static void print_frame(uint16_t *frame) {
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
     static frame_elem_t frame[GE_FRAME_SIZE];
-    double period_in_count = 0;
-    double period_out_count = 0;
     double in_count, out_count;
     DELAY_MS(5000);
+    ge_init();
 
     while (1) {
         //uartputs("Starting to wait for frame...\r\n");
         bool result = mailbox_receive_frame(frame);
         //uartprintf("Got frame: %d\r\n", result);
-        //print_frame(frame);
+        print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
         in_count = pc_get_in_count();
         out_count = pc_get_out_count();
 
         if (in_count > 0.0 || out_count > 0.0) {
-            period_in_count += in_count;
-            period_out_count += out_count;
-            //uartprintf("In: %f\r\nOut: %f\r\n", period_in_count, period_out_count);
+            pc_update_counts(in_count, out_count);
+            uartprintf("In: %f out: %f\r\n", in_count, out_count);
         }
+        DELAY_MS(50);
     }
+}
+
+static void pc_update_counts(double count_in, double count_out) {
+    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
+    counter.in_count = counter.in_count + (uint32_t) count_in;
+    counter.out_count = counter.out_count + (uint32_t) count_out;
+    Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
@@ -330,6 +347,7 @@ void pcService_createTask(void)
     frame_queue_init(&rawFrames, rawFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_RAW_FRAMES);
     frame_queue_init(&medianFrames, medianFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_MEDIAN_FRAMES);
     // Initialize counter/config
+    internal_counter_init(&internal_counter);
     counter_init(&counter);
     config_init(&config);
 

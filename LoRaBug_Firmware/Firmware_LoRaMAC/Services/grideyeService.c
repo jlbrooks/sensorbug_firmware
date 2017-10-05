@@ -267,8 +267,23 @@ static void mailbox_init() {
     }
 }
 
-bool mailbox_receive_frame(frame_t *frame) {
-    return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
+bool mailbox_receive_frame(frame_t frame) {
+    grideye_get_frame(frame);
+    //return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
+    return true;
+}
+
+void ge_init() {
+    uartputs("Running init\r\n");
+    setPin(Board_HDR_PORTF6, false);
+
+    setLed(LED_PIN_TX, true);
+
+    // Reset grideye
+    ge_mode = GE_MODE_SLEEP;
+    grideye_set_mode(GE_MODE_NORMAL);
+    setLed(LED_PIN_TX, false);
+    uartputs("Done init\r\n");
 }
 
 static void print_frame(uint16_t *frame) {

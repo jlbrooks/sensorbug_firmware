@@ -52,7 +52,7 @@ Char task0Stack[TASKSTACKSIZE];
 /*!
  * Defines the application data transmission duty cycle. 15s, value in [ms].
  */
-#define APP_TX_DUTYCYCLE                            3000
+#define APP_TX_DUTYCYCLE                            5000
 
 /*!
  * Defines a random delay for application data transmission duty cycle. 2s,
@@ -209,6 +209,7 @@ static void PrepareTxFrame( uint8_t port )
     CountMessage message = CountMessage_init_zero;
     pb_ostream_t stream;
     bool status;
+    pc_counter_t counter;
 
     uartprintf("# PrepareTxFrame\r\n");
 
@@ -230,8 +231,9 @@ static void PrepareTxFrame( uint8_t port )
 
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        message.count_in = 2;
-        message.count_out = 4;
+        //pc_get_counts(&counter);
+        message.count_in = counter.in_count;
+        message.count_out = counter.out_count;
 
         status = pb_encode(&stream, CountMessage_fields, &message);
         message_length = stream.bytes_written;
@@ -847,7 +849,7 @@ int main(void)
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    grideyeService_createTask();
+    //grideyeService_createTask();
     pcService_createTask();
 
     /* Open and setup pins */
