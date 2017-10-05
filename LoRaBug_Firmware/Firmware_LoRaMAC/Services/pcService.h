@@ -27,6 +27,16 @@ extern "C"
  * CONSTANTS
  */
 
+/*******************************************************************************
+ * TYPEDEFS
+ */
+
+typedef struct pc_counter {
+    double in_count;  //< Number of counts going in
+    double out_count;  //< Number of counts going out
+    bool count_updated;  //< Whether or not the count has been updated since the last new frame
+} pc_counter_t;
+
 /*********************************************************************
  * MACROS
  */
@@ -39,6 +49,8 @@ extern "C"
  * Task creation function for the occulow service
  */
 extern void pcService_createTask(void);
+
+void pc_get_counts(pc_counter_t *out_counter);
 
 
 /*********************************************************************

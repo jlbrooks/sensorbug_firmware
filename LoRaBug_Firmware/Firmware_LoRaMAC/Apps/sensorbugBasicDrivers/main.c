@@ -226,11 +226,12 @@ static void PrepareTxFrame( uint8_t port )
         // }
 
         //Prepare sensor readings to send over LoRa
+        uartprintf("Sending count data\r\n");
 
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        message.count_in = 1;
-        message.count_out = 3;
+        message.count_in = 2;
+        message.count_out = 4;
 
         status = pb_encode(&stream, CountMessage_fields, &message);
         message_length = stream.bytes_written;

@@ -21,6 +21,7 @@
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 
 /* Board Header files */
@@ -62,12 +63,6 @@
  */
 
 typedef struct {
-    double in_count;  //< Number of counts going in
-    double out_count;  //< Number of counts going out
-    bool count_updated;  //< Whether or not the count has been updated since the last new frame
-} pc_counter_t;
-
-typedef struct {
     int16_t trigger_column[2];  //< Columns to detect movement on
     int16_t trigger_check_offset[2];  //< Offsets to check for direction
 } pc_config_t;
@@ -101,6 +96,9 @@ static frame_t medianFramePtrs[NUM_MEDIAN_FRAMES];
 // Counter/config structs
 static pc_counter_t counter;
 static pc_config_t config;
+
+// Counter lock
+static Semaphore_Struct count_sem;
 
 static uint32_t frame_count;
 static uint32_t last_frame_counted;
@@ -231,11 +229,15 @@ static void update_counter(void) {
         if (last_frame_counted < frame_count - 2) {
             switch (direction) {
             case DIR_IN:
+                Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
                 counter.in_count = counter.in_count + 0.5;
+                Semaphore_post(Semaphore_Handle(&count_sem));
                 last_frame_counted = frame_count;
                 break;
             case DIR_OUT:
+                Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
                 counter.out_count = counter.out_count + 0.5;
+                Semaphore_post(Semaphore_Handle(&count_sem));
                 last_frame_counted = frame_count;
                 break;
             }
@@ -270,17 +272,19 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     while (1) {
         //uartputs("Starting to wait for frame...\r\n");
         bool result = mailbox_receive_frame(frame);
-        uartprintf("Got frame: %d\r\n", result);
+        //uartprintf("Got frame: %d\r\n", result);
         //print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
         in_count = pc_get_in_count();
         out_count = pc_get_out_count();
 
+        set_counts(in_count, out_count);
+
         if (in_count > 0.0 || out_count > 0.0) {
             period_in_count += in_count;
             period_out_count += out_count;
-            uartprintf("In: %f\r\nOut: %f\r\n", period_in_count, period_out_count);
+            //uartprintf("In: %f\r\nOut: %f\r\n", period_in_count, period_out_count);
         }
     }
 }
@@ -288,6 +292,14 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
+
+
+void pc_get_counts(pc_counter_t *out_counter) {
+    Semaphore_pend(Semaphore_Handle(&count_sem), BIOS_WAIT_FOREVER);
+    out_counter->in_count = counter.in_count;
+    out_counter->out_count = counter.out_count;
+    Semaphore_post(Semaphore_Handle(&count_sem));
+}
 
 /*********************************************************************
  * @fn      pcService_createTask
@@ -301,6 +313,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 void pcService_createTask(void)
 {
     Task_Params taskParams;
+    Semaphore_Params semaphoreParams;
 
     // Configure task
     Task_Params_init(&taskParams);
@@ -320,6 +333,11 @@ void pcService_createTask(void)
     // Initialize counter/config
     counter_init(&counter);
     config_init(&config);
+
+    // Initialize semaphore
+    Semaphore_Params_init(&semaphoreParams);
+    semaphoreParams.mode = Semaphore_Mode_BINARY;
+    Semaphore_construct(&count_sem, 1, &semaphoreParams);
 
     Task_construct(&pcTask, pc_taskFxn, &taskParams, NULL);
 }
