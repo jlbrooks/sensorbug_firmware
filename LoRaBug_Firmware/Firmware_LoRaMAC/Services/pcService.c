@@ -245,11 +245,11 @@ static void update_internal_counter(void) {
         if (last_frame_counted < frame_count - 2) {
             switch (direction) {
             case DIR_IN:
-                internal_counter.in_count = counter.in_count + 0.5;
+                internal_counter.in_count = internal_counter.in_count + 0.5;
                 last_frame_counted = frame_count;
                 break;
             case DIR_OUT:
-                internal_counter.out_count = counter.out_count + 0.5;
+                internal_counter.out_count = internal_counter.out_count + 0.5;
                 last_frame_counted = frame_count;
                 break;
             }
@@ -302,8 +302,8 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
 static void pc_update_counts(double count_in, double count_out) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
-    counter.in_count = counter.in_count + (uint32_t) count_in;
-    counter.out_count = counter.out_count + (uint32_t) count_out;
+    counter.in_count = counter.in_count + count_in;
+    counter.out_count = counter.out_count + count_out;
     Semaphore_post(Semaphore_handle(&count_sem));
 }
 
@@ -312,12 +312,17 @@ static void pc_update_counts(double count_in, double count_out) {
  */
 
 
-void pc_get_counts(pc_counter_t *out_counter) {
+void pc_get_counts(pc_counter_t *out_counter, bool reset) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     out_counter->in_count = counter.in_count;
     out_counter->out_count = counter.out_count;
+    if (reset) {
+        counter.in_count = 0;
+        counter.out_count = 0;
+    }
     Semaphore_post(Semaphore_handle(&count_sem));
 }
+
 
 /*********************************************************************
  * @fn      pcService_createTask

@@ -52,7 +52,7 @@ Char task0Stack[TASKSTACKSIZE];
 /*!
  * Defines the application data transmission duty cycle. 15s, value in [ms].
  */
-#define APP_TX_DUTYCYCLE                            3000
+#define APP_TX_DUTYCYCLE                            10000
 
 /*!
  * Defines a random delay for application data transmission duty cycle. 2s,
@@ -227,13 +227,13 @@ static void PrepareTxFrame( uint8_t port )
         // }
 
         //Prepare sensor readings to send over LoRa
-        uartprintf("Sending count data\r\n");
 
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        pc_get_counts(&counter);
-        message.count_in = counter.in_count;
-        message.count_out = counter.out_count;
+        pc_get_counts(&counter, true);
+        message.count_in = (uint32_t) ceil(counter.in_count);
+        message.count_out = (uint32_t) ceil(counter.out_count);
+        uartprintf("Sending %d/%d\r\n", message.count_in, message.count_out);
 
         status = pb_encode(&stream, CountMessage_fields, &message);
         message_length = stream.bytes_written;

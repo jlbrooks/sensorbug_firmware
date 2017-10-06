@@ -32,8 +32,8 @@ extern "C"
  */
 
 typedef struct pc_counter {
-    uint32_t in_count;  //< Number of counts going in
-    uint32_t out_count;  //< Number of counts going out
+    double in_count;  //< Number of counts going in
+    double out_count;  //< Number of counts going out
 } pc_counter_t;
 
 /*********************************************************************
@@ -49,7 +49,7 @@ typedef struct pc_counter {
  */
 extern void pcService_createTask(void);
 
-void pc_get_counts(pc_counter_t *out_counter);
+void pc_get_counts(pc_counter_t *out_counter, bool reset);
 
 
 /*********************************************************************
