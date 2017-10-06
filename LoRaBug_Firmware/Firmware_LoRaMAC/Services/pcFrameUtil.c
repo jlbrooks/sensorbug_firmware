@@ -78,6 +78,7 @@ void enqueue_frame(frame_queue_t *queue, frame_t new_frame) {
     //uartprintf("Enqueuing, size=%d\r\n", queue->cur_len);
     // Copy new data into 0th frame
     for (int i = 0; i < queue->elem_size; i++) {
+        //uartprintf("Writing %d to %x (%d,%d)\r\n", new_frame[i], &queue->frames[0][i], i, queue->elem_size);
         queue->frames[0][i] = new_frame[i];
     }
 

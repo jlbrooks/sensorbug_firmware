@@ -283,27 +283,28 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
     while (1) {
         //uartputs("Starting to wait for frame...\r\n");
-        grideye_get_frame(frame);
+        //grideye_get_frame(frame);
+        mailbox_receive_frame(frame);
         //uartprintf("Got frame: %d\r\n", result);
         //print_frame(frame);
-        //pc_new_frame(frame);
+        pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
-        //in_count = pc_get_in_count();
-        //out_count = pc_get_out_count();
+        in_count = pc_get_in_count();
+        out_count = pc_get_out_count();
 
         if (in_count > 0.0 || out_count > 0.0) {
             pc_update_counts(in_count, out_count);
             uartprintf("In: %f out: %f\r\n", in_count, out_count);
         }
-        DELAY_MS(100);
+        toggleLed(Board_RLED);
     }
 }
 
 static void pc_update_counts(double count_in, double count_out) {
-    //Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
+    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     counter.in_count = counter.in_count + (uint32_t) count_in;
     counter.out_count = counter.out_count + (uint32_t) count_out;
-    //Semaphore_post(Semaphore_handle(&count_sem));
+    Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
@@ -312,10 +313,10 @@ static void pc_update_counts(double count_in, double count_out) {
 
 
 void pc_get_counts(pc_counter_t *out_counter) {
-    //Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
+    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     out_counter->in_count = counter.in_count;
     out_counter->out_count = counter.out_count;
-    //Semaphore_post(Semaphore_handle(&count_sem));
+    Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
@@ -345,8 +346,8 @@ void pcService_createTask(void)
     for (int i = 0; i < NUM_MEDIAN_FRAMES; i++) {
         medianFramePtrs[i] = &medianFrameChunks[i * GE_FRAME_SIZE];
     }
-    frame_queue_init(&rawFrames, rawFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_RAW_FRAMES);
-    frame_queue_init(&medianFrames, medianFramePtrs, GE_FRAME_SIZE*sizeof(frame_elem_t), NUM_MEDIAN_FRAMES);
+    frame_queue_init(&rawFrames, rawFramePtrs, GE_FRAME_SIZE, NUM_RAW_FRAMES);
+    frame_queue_init(&medianFrames, medianFramePtrs, GE_FRAME_SIZE, NUM_MEDIAN_FRAMES);
     // Initialize counter/config
     internal_counter_init(&internal_counter);
     counter_init(&counter);

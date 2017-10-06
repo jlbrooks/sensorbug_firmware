@@ -22,6 +22,8 @@
 
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Mailbox.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 
@@ -33,6 +35,7 @@
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
 #include "io.h"
+#include "board.h"
 
 #include "grideyeService.h"
 #include "pcFrameUtil.h"
@@ -47,6 +50,8 @@
  */
 
 #define GE_BUFFER_DATA_LENGTH 64
+
+#define GE_READ_TIME 50
 
 // Grideye registers and addresses
 #define GE_SLAVE_ADDRESS 0x69
@@ -85,6 +90,14 @@ static PIN_Config enPinTable[] = {
 static uint8_t ge_mode = GE_MODE_NORMAL;
 static uint8_t ge_write_buffer[GE_BUFFER_DATA_LENGTH];
 static uint8_t ge_read_buffer[GE_BUFFER_DATA_LENGTH];
+
+// Timer
+static TimerEvent_t grideyeReadTimer;
+
+// Mailbox
+static Mailbox_Handle mailbox;
+
+static frame_elem_t frame[GE_FRAME_SIZE];
 
 /*********************************************************************
  * @fn      grideye_read_byte
@@ -169,6 +182,23 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
     I2C_close(handle);
 }
 
+static void mailbox_init() {
+    Mailbox_Params params;
+    Error_Block eb;
+
+    Error_init(&eb);
+    Mailbox_Params_init(&params);
+
+    mailbox = Mailbox_create(sizeof(frame), GE_MAILBOX_SIZE, &params, &eb);
+    if (mailbox == NULL) {
+        System_abort("Mailbox create failed");
+    }
+}
+
+bool mailbox_receive_frame(frame_t frame) {
+    return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
+}
+
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
@@ -229,14 +259,17 @@ double grideye_get_ambient_temp(void)
  * @param   frame_buffer The buffer to fill. Must have 64 spaces
  * @return  None
  */
-void grideye_get_frame(frame_t frame_buffer) {
+void grideye_get_frame() {
     uint8_t lsb, msb;
     for (int i = 0; i < GE_FRAME_SIZE; i++) {
-        //lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
-        //msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
-        //frame_buffer[i] = ((msb <<8) + lsb);
-        frame_buffer[i] = i;
+        lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
+        msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
+        frame[i] = ((msb <<8) + lsb);
+        //frame[i] = i;
     }
+    Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
+
+    TimerStart( &grideyeReadTimer );
 }
 
 void grideye_init() {
@@ -245,6 +278,12 @@ void grideye_init() {
     // Reset grideye
     ge_mode = GE_MODE_SLEEP;
     grideye_set_mode(GE_MODE_NORMAL);
+
+    mailbox_init();
+
+    TimerInit( &grideyeReadTimer, grideye_get_frame );
+    TimerSetValue( &grideyeReadTimer, GE_READ_TIME );
+    TimerStart( &grideyeReadTimer );
 }
 
 #endif /* SERVICES_GRIDEYESERVICE_C_ */
