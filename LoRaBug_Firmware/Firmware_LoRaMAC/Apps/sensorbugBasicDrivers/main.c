@@ -206,10 +206,10 @@ static void PrepareTxFrame( uint8_t port )
     size_t message_length;
     //uint32_t pir_status;
     //uint32_t startTicks,currTicks;
-    CountMessage message = CountMessage_init_zero;
+    static CountMessage message = CountMessage_init_zero;
     pb_ostream_t stream;
     bool status;
-    pc_counter_t counter;
+    static pc_counter_t counter;
 
     uartprintf("# PrepareTxFrame\r\n");
 

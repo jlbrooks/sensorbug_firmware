@@ -286,10 +286,10 @@ static void pc_taskFxn(UArg a0, UArg a1) {
         grideye_get_frame(frame);
         //uartprintf("Got frame: %d\r\n", result);
         //print_frame(frame);
-        pc_new_frame(frame);
+        //pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
-        in_count = pc_get_in_count();
-        out_count = pc_get_out_count();
+        //in_count = pc_get_in_count();
+        //out_count = pc_get_out_count();
 
         if (in_count > 0.0 || out_count > 0.0) {
             pc_update_counts(in_count, out_count);
@@ -300,10 +300,10 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 }
 
 static void pc_update_counts(double count_in, double count_out) {
-    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
+    //Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     counter.in_count = counter.in_count + (uint32_t) count_in;
     counter.out_count = counter.out_count + (uint32_t) count_out;
-    Semaphore_post(Semaphore_handle(&count_sem));
+    //Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
@@ -312,10 +312,10 @@ static void pc_update_counts(double count_in, double count_out) {
 
 
 void pc_get_counts(pc_counter_t *out_counter) {
-    Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
+    //Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     out_counter->in_count = counter.in_count;
     out_counter->out_count = counter.out_count;
-    Semaphore_post(Semaphore_handle(&count_sem));
+    //Semaphore_post(Semaphore_handle(&count_sem));
 }
 
 /*********************************************************************
