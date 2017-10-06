@@ -268,7 +268,6 @@ static void print_frame(uint16_t *frame) {
         }
     }
     uartprintf("\r\n");
-    uartprintf("\r\n");
 }
 
 /*********************************************************************
@@ -286,7 +285,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
         //grideye_get_frame(frame);
         mailbox_receive_frame(frame);
         //uartprintf("Got frame: %d\r\n", result);
-        //print_frame(frame);
+        print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
         in_count = pc_get_in_count();
@@ -294,7 +293,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
         if (in_count > 0.0 || out_count > 0.0) {
             pc_update_counts(in_count, out_count);
-            uartprintf("In: %f out: %f\r\n", in_count, out_count);
+            //uartprintf("In: %f out: %f\r\n", in_count, out_count);
         }
         toggleLed(Board_RLED);
     }

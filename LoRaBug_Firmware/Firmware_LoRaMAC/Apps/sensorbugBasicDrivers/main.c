@@ -827,6 +827,14 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
+void dummyMainTask(UArg arg1, UArg arg2) {
+    BoardInitMcu( );
+    BoardInitPeriph( );
+    while (1) {
+        Task_yield();
+    }
+}
+
 /*
  *  ======== main ========
  */
@@ -847,7 +855,7 @@ int main(void)
     taskParams.arg0 = 1000000 / Clock_tickPeriod;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr) dummyMainTask, &taskParams, NULL);
 
     pcService_createTask();
 
