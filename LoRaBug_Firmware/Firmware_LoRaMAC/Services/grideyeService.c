@@ -20,13 +20,10 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Task.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
-#include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/knl/Task.h>
-#include <ti/sysbios/knl/Clock.h>
-#include <ti/sysbios/knl/Mailbox.h>
-
 
 /* Board Header files */
 #include "Config/Board_LoRaBUG.h"
@@ -48,13 +45,6 @@
 /*******************************************************************************
  * CONSTANTS
  */
-#define GRIDEYE_TASK_PRIORITY                     5
-
-#define GRIDEYE_TASK_STACK_SIZE                   2048
-
-
-#define LED_PIN_RX      Board_GLED
-#define LED_PIN_TX      Board_RLED
 
 #define GE_BUFFER_DATA_LENGTH 64
 
@@ -83,10 +73,6 @@
  * LOCAL VARIABLES
  */
 
-// Task configuration
-Task_Struct grideyeTask;
-Char grideyeTaskStack[GRIDEYE_TASK_STACK_SIZE];
-
 static PIN_Handle enPinHandle;
 static PIN_State enPinState;
 
@@ -99,12 +85,6 @@ static PIN_Config enPinTable[] = {
 static uint8_t ge_mode = GE_MODE_NORMAL;
 static uint8_t ge_write_buffer[GE_BUFFER_DATA_LENGTH];
 static uint8_t ge_read_buffer[GE_BUFFER_DATA_LENGTH];
-
-// Current frame
-static frame_elem_t frame[GE_FRAME_SIZE];
-
-// Mailbox
-static Mailbox_Handle mailbox;
 
 /*********************************************************************
  * @fn      grideye_read_byte
@@ -190,11 +170,15 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
 }
 
 /*********************************************************************
+ * PUBLIC FUNCTIONS
+ */
+
+/*********************************************************************
  * @fn      grideye_set_mode
  * @param   mode The mode to enable
  * @return  True if the mode was valid, false otherwise
  */
-static bool grideye_set_mode(uint8_t mode) {
+bool grideye_set_mode(uint8_t mode) {
     if (ge_mode == mode) {
         return false;  // Already in this mode
     }
@@ -230,7 +214,7 @@ static bool grideye_set_mode(uint8_t mode) {
  * @param   None
  * @return  The double value of the current ambient temperature
  */
-static double grideye_get_ambient_temp(void)
+double grideye_get_ambient_temp(void)
 {
     uint8_t lsb, msb;
 
@@ -245,114 +229,22 @@ static double grideye_get_ambient_temp(void)
  * @param   frame_buffer The buffer to fill. Must have 64 spaces
  * @return  None
  */
-static void grideye_get_frame(uint16_t *frame_buffer) {
+void grideye_get_frame(frame_t frame_buffer) {
     uint8_t lsb, msb;
     for (int i = 0; i < GE_FRAME_SIZE; i++) {
-        lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
-        msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
-        frame_buffer[i] = ((msb <<8) + lsb);
+        //lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
+        //msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
+        //frame_buffer[i] = ((msb <<8) + lsb);
+        frame_buffer[i] = i;
     }
 }
 
-static void mailbox_init() {
-    Mailbox_Params params;
-    Error_Block eb;
-
-    Error_init(&eb);
-    Mailbox_Params_init(&params);
-
-    mailbox = Mailbox_create(sizeof(frame), GE_MAILBOX_SIZE, &params, &eb);
-    if (mailbox == NULL) {
-        System_abort("Mailbox create failed");
-    }
-}
-
-bool mailbox_receive_frame(frame_t frame) {
-    grideye_get_frame(frame);
-    //return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
-    return true;
-}
-
-void ge_init() {
-    uartputs("Running init\r\n");
+void grideye_init() {
     setPin(Board_HDR_PORTF6, false);
-
-    setLed(LED_PIN_TX, true);
 
     // Reset grideye
     ge_mode = GE_MODE_SLEEP;
     grideye_set_mode(GE_MODE_NORMAL);
-    setLed(LED_PIN_TX, false);
-    uartputs("Done init\r\n");
 }
-
-static void print_frame(uint16_t *frame) {
-    for (int i = 0; i < GE_FRAME_SIZE; i++) {
-        if (i < GE_FRAME_SIZE - 1) {
-            uartprintf("%d,", frame[i]);
-        } else {
-            uartprintf("%d", frame[i]);
-        }
-    }
-    uartprintf("\r\n");
-}
-
-/*********************************************************************
- * @fn      grideye_taskFxn
- * @return  None.
- */
-static void grideye_taskFxn (UArg a0, UArg a1)
-{
-    DELAY_MS(5000);
-    uartprintf("Starting task function...\r\n");
-
-    setPin(Board_HDR_PORTF6, false);
-
-    setLed(LED_PIN_TX, true);
-
-    // Reset grideye
-    ge_mode = GE_MODE_SLEEP;
-    grideye_set_mode(GE_MODE_NORMAL);
-
-    while(1){
-        grideye_get_frame(frame);
-        //uartputs("Posting frame...\r\n");
-        Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
-        toggleLed(LED_PIN_TX);
-        DELAY_MS(100);
-    }
-
-}
-
-
-/*********************************************************************
- * PUBLIC FUNCTIONS
- */
-
-/*********************************************************************
- * @fn      grideyeService_createTask
- *
- * @brief   Task creation function for the grideye application.
- *
- * @param   None.
- *
- * @return  None.
- */
-void grideyeService_createTask(void)
-{
-    Task_Params taskParams;
-
-    // Configure task
-    Task_Params_init(&taskParams);
-    taskParams.stack = grideyeTaskStack;
-    taskParams.stackSize = GRIDEYE_TASK_STACK_SIZE;
-    //taskParams.priority = GRIDEYE_TASK_PRIORITY;
-
-    mailbox_init();
-
-    Task_construct(&grideyeTask, grideye_taskFxn, &taskParams, NULL);
-}
-
-
 
 #endif /* SERVICES_GRIDEYESERVICE_C_ */

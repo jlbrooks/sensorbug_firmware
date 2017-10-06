@@ -268,6 +268,7 @@ static void print_frame(uint16_t *frame) {
         }
     }
     uartprintf("\r\n");
+    uartprintf("\r\n");
 }
 
 /*********************************************************************
@@ -278,13 +279,13 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     static frame_elem_t frame[GE_FRAME_SIZE];
     double in_count, out_count;
     DELAY_MS(5000);
-    ge_init();
+    grideye_init();
 
     while (1) {
         //uartputs("Starting to wait for frame...\r\n");
-        bool result = mailbox_receive_frame(frame);
+        grideye_get_frame(frame);
         //uartprintf("Got frame: %d\r\n", result);
-        print_frame(frame);
+        //print_frame(frame);
         pc_new_frame(frame);
         //uartputs("Done new frame\r\n");
         in_count = pc_get_in_count();
@@ -294,7 +295,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             pc_update_counts(in_count, out_count);
             uartprintf("In: %f out: %f\r\n", in_count, out_count);
         }
-        DELAY_MS(50);
+        DELAY_MS(100);
     }
 }
 

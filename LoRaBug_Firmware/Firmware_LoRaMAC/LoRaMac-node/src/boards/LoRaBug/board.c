@@ -19,7 +19,7 @@
 
 
 /* Callback Task Declarations */
-#define LORATASKSTACKSIZE   1800
+#define LORATASKSTACKSIZE   2048
 static Task_Struct loraTaskStruct;
 static Char loraTaskStack[LORATASKSTACKSIZE];
 static void loraTaskFxn(UArg arg0, UArg arg1);

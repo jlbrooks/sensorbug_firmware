@@ -35,10 +35,13 @@ extern "C"
 #define GE_FRAME_SIZE 64
 #define GE_GRID_SIZE 8
 #define MAX_GE_GRID_INDEX (GE_GRID_SIZE-1)
-#define GE_MODE_NORMAL 0x00
-#define GE_MODE_SLEEP 0x10
-#define GE_MODE_STANDBY_1 0x20
-#define GE_MODE_STANDBY_2 0x21
+
+typedef enum ge_mode {
+	GE_MODE_NORMAL = 0x00,
+	GE_MODE_SLEEP = 0x10,
+	GE_MODE_STANDBY_1 = 0x20,
+	GE_MODE_STANDBY_2 = 0x21
+} ge_mode_t;
 
 /*********************************************************************
  * MACROS
@@ -53,9 +56,13 @@ extern "C"
  */
 extern void grideyeService_createTask(void);
 
-bool mailbox_receive_frame(frame_t frame);
+bool grideye_set_mode(ge_mode_t mode);
 
-void ge_init(void);
+double grideye_get_ambient_temp(void);
+
+void grideye_get_frame(frame_t frame_buffer);
+
+void grideye_init(void);
 
 
 /*********************************************************************

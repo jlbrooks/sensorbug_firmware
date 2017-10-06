@@ -52,7 +52,7 @@ Char task0Stack[TASKSTACKSIZE];
 /*!
  * Defines the application data transmission duty cycle. 15s, value in [ms].
  */
-#define APP_TX_DUTYCYCLE                            5000
+#define APP_TX_DUTYCYCLE                            3000
 
 /*!
  * Defines a random delay for application data transmission duty cycle. 2s,
@@ -231,7 +231,7 @@ static void PrepareTxFrame( uint8_t port )
 
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        //pc_get_counts(&counter);
+        pc_get_counts(&counter);
         message.count_in = counter.in_count;
         message.count_out = counter.out_count;
 
@@ -733,7 +733,7 @@ void maintask(UArg arg0, UArg arg1)
                 mlmeReq.Req.Join.DevEui = DevEui;
                 mlmeReq.Req.Join.AppEui = AppEui;
                 mlmeReq.Req.Join.AppKey = AppKey;
-                mlmeReq.Req.Join.NbTrials = 6;
+                mlmeReq.Req.Join.NbTrials = 3;
 
                 if( NextTx == true )
                 {
@@ -849,7 +849,6 @@ int main(void)
     taskParams.stack = &task0Stack;
     Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    //grideyeService_createTask();
     pcService_createTask();
 
     /* Open and setup pins */
