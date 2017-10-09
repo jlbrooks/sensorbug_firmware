@@ -33,6 +33,7 @@
 #include "grideyeService.h"
 #include "pcService.h"
 #include "pcFrameUtil.h"
+#include "pir.h"
 
 /*******************************************************************************
  * MACROS
@@ -46,8 +47,8 @@
 #define PC_TASK_PRIORITY                     5
 #define PC_TASK_STACK_SIZE                   2048
 
-#define NUM_RAW_FRAMES 11
-#define NUM_MEDIAN_FRAMES 5
+#define NUM_RAW_FRAMES 15
+#define NUM_MEDIAN_FRAMES 7
 
 #define MEDIAN_FRAME_CHUNK_SIZE ((NUM_MEDIAN_FRAMES) * (GE_FRAME_SIZE))
 #define RAW_FRAME_CHUNK_SIZE ((NUM_RAW_FRAMES) * (GE_FRAME_SIZE))
@@ -280,15 +281,14 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     double in_count, out_count;
     DELAY_MS(5000);
     grideye_init();
+    pir_init();
+    pir_enable_interrupt();
 
     while (1) {
-        //uartputs("Starting to wait for frame...\r\n");
-        //grideye_get_frame(frame);
-        mailbox_receive_frame(frame);
-        //uartprintf("Got frame: %d\r\n", result);
+        grideye_get_frame(frame);
+        //mailbox_receive_frame(frame);
         //print_frame(frame);
         pc_new_frame(frame);
-        //uartputs("Done new frame\r\n");
         in_count = pc_get_in_count();
         out_count = pc_get_out_count();
 
@@ -297,6 +297,8 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             uartprintf("In: %f out: %f\r\n", in_count, out_count);
         }
         toggleLed(Board_RLED);
+        uartprintf("Pin state: %d\r\n", getPin(Board_HDR_ADIO6));
+        DELAY_MS(50);
     }
 }
 

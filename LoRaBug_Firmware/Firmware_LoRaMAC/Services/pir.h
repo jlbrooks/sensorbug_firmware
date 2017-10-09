@@ -1,16 +1,16 @@
 /******************************************************************************
 
- @file  grideyeService.h
+ @file  pir.h
 
- @brief This file contains the grideye Service Interface
-        Created on: Jul 6, 2017
+ @brief This file contains the PIR interrupt interface
+        Created on: October 9, 2017
 
  @author: Jacob Brooks
 
  ******************************************************************************/
 
-#ifndef SERVICES_GRIDEYESERVICE_H_
-#define SERVICES_GRIDEYESERVICE_H_
+#ifndef SERVICES_PIR_H_
+#define SERVICES_PIR_H_
 
 #ifdef __cplusplus
 extern "C"
@@ -32,17 +32,6 @@ extern "C"
  * CONSTANTS
  */
 
-#define GE_FRAME_SIZE 64
-#define GE_GRID_SIZE 8
-#define MAX_GE_GRID_INDEX (GE_GRID_SIZE-1)
-
-typedef enum ge_mode {
-	GE_MODE_NORMAL = 0x00,
-	GE_MODE_SLEEP = 0x10,
-	GE_MODE_STANDBY_1 = 0x20,
-	GE_MODE_STANDBY_2 = 0x21
-} ge_mode_t;
-
 /*********************************************************************
  * MACROS
  */
@@ -51,21 +40,11 @@ typedef enum ge_mode {
  * FUNCTIONS
  */
 
-/*
- * Task creation function for the GRIDEYE Service.
- */
-extern void grideyeService_createTask(void);
+void pir_init();
 
-bool grideye_set_mode(ge_mode_t mode);
+void pir_enable_interrupt();
 
-double grideye_get_ambient_temp(void);
-
-void grideye_get_frame(frame_t frame_buffer);
-
-void grideye_init(void);
-
-bool mailbox_receive_frame(frame_t frame);
-
+void pir_disable_interrupt();
 
 /*********************************************************************
 *********************************************************************/
@@ -74,4 +53,4 @@ bool mailbox_receive_frame(frame_t frame);
 }
 #endif
 
-#endif /* SERVICES_GRIDEYESERVICE_H_ */
+#endif /* SERVICES_PIR_H_ */
