@@ -59,26 +59,24 @@ static PIN_Config pirPinTable[] = {
     PIN_TERMINATE
 };
 
-static void testCallback(PIN_Handle handle, PIN_Id pinId) {
-    //uartprintf("Callback!\r\n");
-    toggleLed(Board_GLED);
-}
+static PIN_IntCb callback;
 
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
 
-void pir_init() {
+void pir_init(PIN_IntCb cb) {
     pirPinHandle = PIN_open(&pirPinState, pirPinTable);
     if (pirPinHandle == NULL)
     {
         uartputs("Failed to open board header pins\r\n");
     }
+    callback = cb;
 }
 
 void pir_enable_interrupt() {
-    if (PIN_registerIntCb(&pirPinState, testCallback) != PIN_SUCCESS) {
+    if (PIN_registerIntCb(&pirPinState, callback) != PIN_SUCCESS) {
         uartputs("Error registering pin callback\r\n");
     }
     if (PIN_setInterrupt(&pirPinState, PIR_PIN | PIN_IRQ_POSEDGE) != PIN_SUCCESS) {

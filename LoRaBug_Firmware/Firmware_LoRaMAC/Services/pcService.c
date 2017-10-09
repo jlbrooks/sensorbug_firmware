@@ -60,6 +60,8 @@
 #define LOWER_THRESHOLD 4  // Threshold for heat signature difference in frames
 #define UPPER_THRESHOLD 20  // Threshold for heat signature difference in frames
 
+#define INACTIVITY_COUNTER_THRESHOLD 50
+
 /*******************************************************************************
  * TYPEDEFS
  */
@@ -111,6 +113,8 @@ static Semaphore_Struct count_sem;
 
 static uint32_t frame_count;
 static uint32_t last_frame_counted;
+
+static uint32_t inactivity_counter;
 
 // Local functions
 static void pc_new_frame(frame_t new_frame);
@@ -272,6 +276,11 @@ static void print_frame(uint16_t *frame) {
     uartprintf("\r\n");
 }
 
+static void onPIR(PIN_Handle handle, PIN_Id pinId) {
+    toggleLed(Board_GLED);
+    inactivity_counter = 0;
+}
+
 /*********************************************************************
  * @fn      occulow_taskFxn
  * @return  None.
@@ -281,24 +290,37 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     double in_count, out_count;
     DELAY_MS(5000);
     grideye_init();
-    pir_init();
+    pir_init(onPIR);
     pir_enable_interrupt();
 
     while (1) {
-        grideye_get_frame(frame);
-        //mailbox_receive_frame(frame);
-        //print_frame(frame);
-        pc_new_frame(frame);
-        in_count = pc_get_in_count();
-        out_count = pc_get_out_count();
+        if (inactivity_counter >= INACTIVITY_COUNTER_THRESHOLD) {
+            //pir_disable_interrupt();
+            // Set grideye mode
+            //grideye_set_mode(GE_MODE_SLEEP)
+            uartprintf("Going to sleep because of inactivity..\r\n");
+            DELAY_MS(200);
+        } else {
+            grideye_get_frame(frame);
+            //mailbox_receive_frame(frame);
+            //print_frame(frame);
+            pc_new_frame(frame);
+            in_count = pc_get_in_count();
+            out_count = pc_get_out_count();
 
-        if (in_count > 0.0 || out_count > 0.0) {
-            pc_update_counts(in_count, out_count);
-            uartprintf("In: %f out: %f\r\n", in_count, out_count);
+            if (in_count > 0.0 || out_count > 0.0) {
+                pc_update_counts(in_count, out_count);
+                uartprintf("In: %f out: %f\r\n", in_count, out_count);
+                // If we saw any activity, then reset inactivity counter
+                inactivity_counter = 0;
+            } else {
+                inactivity_counter += 1;
+            }
+            toggleLed(Board_RLED);
+            uartprintf("Pin state: %d\r\n", getPin(Board_HDR_ADIO6));
+            DELAY_MS(50);
         }
-        toggleLed(Board_RLED);
-        uartprintf("Pin state: %d\r\n", getPin(Board_HDR_ADIO6));
-        DELAY_MS(50);
+
     }
 }
 

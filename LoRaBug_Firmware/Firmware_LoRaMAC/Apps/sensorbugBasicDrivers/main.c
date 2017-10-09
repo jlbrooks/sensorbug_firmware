@@ -215,17 +215,7 @@ static void PrepareTxFrame( uint8_t port )
 
     switch( port )
     {
-    case 2:
-        //Get PIR status
-        // startTicks = Clock_getTicks();
-        // currTicks = startTicks;
-        // while((currTicks - startTicks) < 5000){
-        //     currTicks = Clock_getTicks();
-        //     pir_status = getPin(Board_HDR_ADIO6);
-        //     if(pir_status == 1)
-        //         break;
-        // }
-
+    case LORAWAN_APP_PORT:
         //Prepare sensor readings to send over LoRa
 
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));

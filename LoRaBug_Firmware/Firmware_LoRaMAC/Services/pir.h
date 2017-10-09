@@ -21,9 +21,6 @@ extern "C"
  * INCLUDES
  */
 
-#include <stdbool.h>
-#include "pcFrameUtil.h"
-
 /*********************************************************************
 *  EXTERNAL VARIABLES
 */
@@ -40,7 +37,7 @@ extern "C"
  * FUNCTIONS
  */
 
-void pir_init();
+void pir_init(PIN_IntCb cb);
 
 void pir_enable_interrupt();
 
