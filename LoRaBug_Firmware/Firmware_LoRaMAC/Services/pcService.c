@@ -366,7 +366,6 @@ void pcService_createTask(void)
     Task_Params_init(&taskParams);
     taskParams.stack = pcTaskStack;
     taskParams.stackSize = PC_TASK_STACK_SIZE;
-    //taskParams.priority = GRIDEYE_TASK_PRIORITY;
 
     // Initialize frame queues
     for (int i = 0; i < NUM_RAW_FRAMES; i++) {

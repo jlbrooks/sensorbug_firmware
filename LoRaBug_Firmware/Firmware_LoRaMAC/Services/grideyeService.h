@@ -64,9 +64,6 @@ void grideye_get_frame(frame_t frame_buffer);
 
 void grideye_init(void);
 
-bool mailbox_receive_frame(frame_t frame);
-
-
 /*********************************************************************
 *********************************************************************/
 

@@ -23,7 +23,6 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/knl/Mailbox.h>
 #include <xdc/runtime/System.h>
 #include <xdc/runtime/Error.h>
 
@@ -64,8 +63,6 @@
 #define GE_CMD_INITIAL_RESET 0x3F
 #define GE_CMD_FLAG_RESET 0x30
 
-#define GE_MAILBOX_SIZE 2
-
 /*******************************************************************************
  * TYPEDEFS
  */
@@ -90,14 +87,6 @@ static PIN_Config enPinTable[] = {
 static uint8_t ge_mode = GE_MODE_NORMAL;
 static uint8_t ge_write_buffer[GE_BUFFER_DATA_LENGTH];
 static uint8_t ge_read_buffer[GE_BUFFER_DATA_LENGTH];
-
-// Timer
-//static TimerEvent_t grideyeReadTimer;
-
-// Mailbox
-//static Mailbox_Handle mailbox;
-
-//static frame_elem_t frame[GE_FRAME_SIZE];
 
 /*********************************************************************
  * @fn      grideye_read_byte
@@ -182,26 +171,11 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
     I2C_close(handle);
 }
 
-//static void mailbox_init() {
-//    Mailbox_Params params;
-//    Error_Block eb;
-//
-//    Error_init(&eb);
-//    Mailbox_Params_init(&params);
-//
-//    mailbox = Mailbox_create(sizeof(frame), GE_MAILBOX_SIZE, &params, &eb);
-//    if (mailbox == NULL) {
-//        System_abort("Mailbox create failed");
-//    }
-//}
 
 /*********************************************************************
  * PUBLIC FUNCTIONS
  */
 
-//bool mailbox_receive_frame(frame_t frame) {
-//    return Mailbox_pend(mailbox, frame, BIOS_WAIT_FOREVER);
-//}
 
 /*********************************************************************
  * @fn      grideye_set_mode
@@ -265,11 +239,7 @@ void grideye_get_frame(frame_t frame) {
         lsb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i);
         msb = grideye_read_byte(GE_REG_PIXEL_BASE + 2*i + 1);
         frame[i] = ((msb <<8) + lsb);
-        //frame[i] = i;
     }
-    //Mailbox_post(mailbox, frame, BIOS_NO_WAIT);
-
-    //TimerStart( &grideyeReadTimer );
 }
 
 void grideye_init() {
@@ -278,12 +248,6 @@ void grideye_init() {
     // Reset grideye
     ge_mode = GE_MODE_SLEEP;
     grideye_set_mode(GE_MODE_NORMAL);
-
-    //mailbox_init();
-
-    //TimerInit( &grideyeReadTimer, grideye_get_frame );
-    //TimerSetValue( &grideyeReadTimer, GE_READ_TIME );
-    //TimerStart( &grideyeReadTimer );
 }
 
 #endif /* SERVICES_GRIDEYESERVICE_C_ */
