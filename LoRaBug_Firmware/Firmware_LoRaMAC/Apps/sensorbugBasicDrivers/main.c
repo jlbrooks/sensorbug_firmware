@@ -802,7 +802,6 @@ void maintask(UArg arg0, UArg arg1)
             {
                // printf("# DeviceState: DEVICE_STATE_SLEEP\n");
                 // Wake up through events
-                //TimerLowPowerHandler( );
                 Task_sleep(TIME_MS * 10);
                 //Task_yield();
                 break;

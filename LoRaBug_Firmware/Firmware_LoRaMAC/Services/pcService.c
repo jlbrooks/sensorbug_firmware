@@ -110,6 +110,8 @@ static pc_config_t config;
 
 // Counter lock
 static Semaphore_Struct count_sem;
+static Semaphore_Struct sleep_sem;
+static bool sleeping;
 
 static uint32_t frame_count;
 static uint32_t last_frame_counted;
@@ -279,6 +281,10 @@ static void print_frame(uint16_t *frame) {
 static void onPIR(PIN_Handle handle, PIN_Id pinId) {
     toggleLed(Board_GLED);
     inactivity_counter = 0;
+    // If we're sleeping, wake up the PC task
+    if (sleeping) {
+        Semaphore_post(Semaphore_handle(&sleep_sem));
+    }
 }
 
 /*********************************************************************
@@ -295,15 +301,23 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
     while (1) {
         if (inactivity_counter >= INACTIVITY_COUNTER_THRESHOLD) {
-            //pir_disable_interrupt();
-            // Set grideye mode
-            //grideye_set_mode(GE_MODE_SLEEP)
             uartprintf("Going to sleep because of inactivity..\r\n");
-            DELAY_MS(200);
+            pir_disable_interrupt();
+            // Set grideye mode
+            grideye_set_mode(GE_MODE_SLEEP);
+
+            // Indicate to PIR that we're sleeping
+            sleeping = true;
+
+            // Sleep on semaphore
+            pir_enable_interrupt();
+            Semaphore_pend(Semaphore_handle(&sleep_sem), BIOS_WAIT_FOREVER);
+
+            // If here, then we were woken up by PIR
+            sleeping = false;
+            grideye_set_mode(GE_MODE_NORMAL);
         } else {
             grideye_get_frame(frame);
-            //mailbox_receive_frame(frame);
-            //print_frame(frame);
             pc_new_frame(frame);
             in_count = pc_get_in_count();
             out_count = pc_get_out_count();
@@ -360,7 +374,7 @@ void pc_get_counts(pc_counter_t *out_counter, bool reset) {
 void pcService_createTask(void)
 {
     Task_Params taskParams;
-    Semaphore_Params semaphoreParams;
+    Semaphore_Params sleepSemParams, countSemParams;
 
     // Configure task
     Task_Params_init(&taskParams);
@@ -381,10 +395,15 @@ void pcService_createTask(void)
     counter_init(&counter);
     config_init(&config);
 
-    // Initialize semaphore
-    Semaphore_Params_init(&semaphoreParams);
-    semaphoreParams.mode = Semaphore_Mode_BINARY;
-    Semaphore_construct(&count_sem, 1, &semaphoreParams);
+    // Initialize semaphores
+    Semaphore_Params_init(&countSemParams);
+    countSemParams.mode = Semaphore_Mode_BINARY;
+    Semaphore_construct(&count_sem, 1, &countSemParams);
+
+    Semaphore_Params_init(&sleepSemParams);
+    sleepSemParams.mode = Semaphore_Mode_BINARY;
+    Semaphore_construct(&sleep_sem, 0, &sleepSemParams);
+
 
     Task_construct(&pcTask, pc_taskFxn, &taskParams, NULL);
 }

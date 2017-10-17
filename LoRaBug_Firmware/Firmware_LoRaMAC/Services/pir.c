@@ -85,7 +85,9 @@ void pir_enable_interrupt() {
 }
 
 void pir_disable_interrupt() {
-    PIN_setInterrupt(&pirPinState, PIR_PIN | PIN_IRQ_DIS);
+    if (PIN_setInterrupt(&pirPinState, PIR_PIN | PIN_IRQ_DIS) != PIN_SUCCESS) {
+        uartputs("Error disabling pin interrupt\r\n");
+    }
 }
 
 
