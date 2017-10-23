@@ -72,8 +72,8 @@ typedef struct {
 } pc_config_t;
 
 typedef struct pc_internal_counter {
-    double in_count;  //< Number of counts going in
-    double out_count;  //< Number of counts going out
+    int in_count;  //< Number of counts going in
+    int out_count;  //< Number of counts going out
     bool count_updated;  //< Whether or not the count has been updated since the last new frame
 } pc_internal_counter_t;
 
@@ -120,8 +120,8 @@ static uint32_t inactivity_counter;
 
 // Local functions
 static void pc_new_frame(frame_t new_frame);
-static double pc_get_in_count(void);
-static double pc_get_out_count(void);
+static int pc_get_in_count(void);
+static int pc_get_out_count(void);
 static void counter_init(pc_counter_t *counter);
 static void internal_counter_init(pc_internal_counter_t *counter);
 static void config_init(pc_config_t *config);
@@ -160,7 +160,7 @@ static void pc_new_frame(frame_t new_frame) {
     internal_counter.out_count = 0;
 }
 
-static double pc_get_in_count(void) {
+static int pc_get_in_count(void) {
     if (!internal_counter.count_updated) {
         update_internal_counter();
     }
@@ -168,7 +168,7 @@ static double pc_get_in_count(void) {
     return internal_counter.in_count;
 }
 
-static double pc_get_out_count(void) {
+static int pc_get_out_count(void) {
     if (!internal_counter.count_updated) {
         update_internal_counter();
     }
@@ -252,11 +252,11 @@ static void update_internal_counter(void) {
         if (last_frame_counted < frame_count - 2) {
             switch (direction) {
             case DIR_IN:
-                internal_counter.in_count = internal_counter.in_count + 0.5;
+                internal_counter.in_count = internal_counter.in_count + 1;
                 last_frame_counted = frame_count;
                 break;
             case DIR_OUT:
-                internal_counter.out_count = internal_counter.out_count + 0.5;
+                internal_counter.out_count = internal_counter.out_count + 1;
                 last_frame_counted = frame_count;
                 break;
             }
@@ -293,7 +293,7 @@ static void onPIR(PIN_Handle handle, PIN_Id pinId) {
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
     static frame_elem_t frame[GE_FRAME_SIZE];
-    double in_count, out_count;
+    int in_count, out_count;
     DELAY_MS(5000);
     grideye_init();
     pir_init(onPIR);
@@ -322,16 +322,16 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             in_count = pc_get_in_count();
             out_count = pc_get_out_count();
 
-            if (in_count > 0.0 || out_count > 0.0) {
+            if (in_count > 0 || out_count > 0) {
                 pc_update_counts(in_count, out_count);
-                uartprintf("In: %f out: %f\r\n", in_count, out_count);
+                uartprintf("In: %d out: %d\r\n", (in_count / 2 + in_count % 2), (out_count / 2 + out_count % 2));
                 // If we saw any activity, then reset inactivity counter
                 inactivity_counter = 0;
             } else {
-                inactivity_counter += 1;
+                inactivity_counter += 0;
             }
             toggleLed(Board_RLED);
-            uartprintf("Pin state: %d\r\n", getPin(Board_HDR_ADIO6));
+            uartprintf("Pin state: %d\r\n", pir_get_value());
             DELAY_MS(50);
         }
 
@@ -352,8 +352,8 @@ static void pc_update_counts(double count_in, double count_out) {
 
 void pc_get_counts(pc_counter_t *out_counter, bool reset) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
-    out_counter->in_count = counter.in_count;
-    out_counter->out_count = counter.out_count;
+    out_counter->in_count = (counter.in_count / 2) + counter.in_count % 2;
+    out_counter->out_count = (counter.out_count / 2) + counter.out_count % 2;
     if (reset) {
         counter.in_count = 0;
         counter.out_count = 0;

@@ -32,8 +32,8 @@ extern "C"
  */
 
 typedef struct pc_counter {
-    double in_count;  //< Number of counts going in
-    double out_count;  //< Number of counts going out
+    int in_count;  //< Number of counts going in
+    int out_count;  //< Number of counts going out
 } pc_counter_t;
 
 /*********************************************************************

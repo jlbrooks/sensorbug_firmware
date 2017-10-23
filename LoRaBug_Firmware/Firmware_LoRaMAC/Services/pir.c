@@ -90,5 +90,9 @@ void pir_disable_interrupt() {
     }
 }
 
+int pir_get_value() {
+    return PIN_getInputValue(PIR_PIN);
+}
+
 
 #endif /* SERVICES_PIR_C_ */

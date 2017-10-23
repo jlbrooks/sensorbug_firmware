@@ -26,7 +26,6 @@
 #include "Board_LoRaBUG.h"
 
 #include <string.h> // strlen in uartputs and LoRaWan code
-#include <math.h>
 
 #include "board.h"
 #include "io.h"
@@ -221,8 +220,8 @@ static void PrepareTxFrame( uint8_t port )
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
         pc_get_counts(&counter, true);
-        message.count_in = (uint32_t) ceil(counter.in_count);
-        message.count_out = (uint32_t) ceil(counter.out_count);
+        message.count_in = counter.in_count;
+        message.count_out = counter.out_count;
         uartprintf("Sending %d/%d\r\n", message.count_in, message.count_out);
 
         status = pb_encode(&stream, CountMessage_fields, &message);
