@@ -56,7 +56,7 @@
 #define NUM_TRIGGER_COLUMNS 2
 #define TRIGGER_INDEX (NUM_MEDIAN_FRAMES/2)
 
-#define TRIGGER_THRESHOLD 8  // Threshold to detect as a person
+#define TRIGGER_THRESHOLD 6  // Threshold to detect as a person
 #define LOWER_THRESHOLD 4  // Threshold for heat signature difference in frames
 #define UPPER_THRESHOLD 20  // Threshold for heat signature difference in frames
 
@@ -128,7 +128,7 @@ static void config_init(pc_config_t *config);
 static bool within_threshold(int16_t current, int16_t next);
 static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col, int16_t offset);
 static void update_internal_counter(void);
-static void pc_update_counts(double count_in, double count_out);
+static void pc_update_counts(int count_in, int count_out);
 
 
 static void pc_new_frame(frame_t new_frame) {
@@ -150,8 +150,6 @@ static void pc_new_frame(frame_t new_frame) {
 
         enqueue_frame(&medianFrames, median_filtered_frame);
         frame_count++;
-
-        // Log new frame?
     }
 
     // Reset counters
@@ -204,7 +202,6 @@ static bool within_threshold(int16_t current, int16_t next) {
 
 static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col, int16_t offset) {
     if (trigger_col + offset < 0 || trigger_col + offset >= GE_GRID_SIZE) {
-        //LOG_LINE("Trigger offset/column out of bounds: (%d, %d)", trigger_col, offset);
         return DIR_NONE;
     }
     uint16_t check_col = (uint16_t) (trigger_col + offset);
@@ -213,12 +210,16 @@ static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col
     int16_t current_max = current_frame[GET_FRAME_INDEX(current_max_index, trigger_col)];
 
     if (current_max >= TRIGGER_THRESHOLD && is_local_max(current_frame, current_max_index, trigger_col)) {
+        //uartprintf("CHECKING COL %d\r\n", check_col);
+        //uartprintf("Found local max: %d\r\n", current_max);
         // Check the past
         for (uint16_t i = 1; i < 3; i++) { // TODO: MAGIC NUMBERS
             frame_t past_frame = frame_queue_get(&medianFrames, frame_index-i);
             uint16_t past_max_index = get_max_index_in_col(past_frame, check_col);
             int16_t past_max = past_frame[GET_FRAME_INDEX(past_max_index, check_col)];
+            //uartprintf("Past max[%d]: %d\r\n", i, past_max);
             if (within_threshold(current_max, past_max) && is_local_max(past_frame, past_max_index, check_col)) {
+                //uartprintf("COUNTING PAST\r\n");
                 return (offset > 0) ? DIR_OUT : DIR_IN;
             }
         }
@@ -229,7 +230,9 @@ static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col
             frame_t future_frame = frame_queue_get(&medianFrames, frame_index+i);
             uint16_t future_max_index = get_max_index_in_col(future_frame, check_col);
             int16_t future_max = future_frame[GET_FRAME_INDEX(future_max_index, check_col)];
+            //uartprintf("Future[%d]: %d\r\n", i, future_max);
             if (within_threshold(current_max, future_max) && is_local_max(future_frame, future_max_index, check_col)) {
+                //uartprintf("COUNTING FUTURE\r\n");
                 return (offset > 0) ? DIR_IN : DIR_OUT;
             }
         }
@@ -279,7 +282,6 @@ static void print_frame(uint16_t *frame) {
 }
 
 static void onPIR(PIN_Handle handle, PIN_Id pinId) {
-    toggleLed(Board_GLED);
     inactivity_counter = 0;
     // If we're sleeping, wake up the PC task
     if (sleeping) {
@@ -298,6 +300,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
     grideye_init();
     pir_init(onPIR);
     pir_enable_interrupt();
+    setLed(Board_GLED, 1);
 
     while (1) {
         if (inactivity_counter >= INACTIVITY_COUNTER_THRESHOLD) {
@@ -310,12 +313,15 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             sleeping = true;
 
             // Sleep on semaphore
+            setLed(Board_GLED, 0);
             pir_enable_interrupt();
             Semaphore_pend(Semaphore_handle(&sleep_sem), BIOS_WAIT_FOREVER);
 
             // If here, then we were woken up by PIR
             sleeping = false;
+            setLed(Board_GLED, 1);
             grideye_set_mode(GE_MODE_NORMAL);
+            uartprintf("Woke up!\r\n");
         } else {
             grideye_get_frame(frame);
             pc_new_frame(frame);
@@ -324,24 +330,24 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
             if (in_count > 0 || out_count > 0) {
                 pc_update_counts(in_count, out_count);
-                uartprintf("In: %d out: %d\r\n", (in_count / 2 + in_count % 2), (out_count / 2 + out_count % 2));
+                //uartprintf("In: %d out: %d\r\n", (in_count / 2 + in_count % 2), (out_count / 2 + out_count % 2));
                 // If we saw any activity, then reset inactivity counter
                 inactivity_counter = 0;
             } else {
-                inactivity_counter += 0;
+                inactivity_counter += 1;
             }
-            toggleLed(Board_RLED);
-            uartprintf("Pin state: %d\r\n", pir_get_value());
-            DELAY_MS(50);
+            //toggleLed(Board_RLED);
+            //uartprintf("PIR: %d\r\n", pir_get_value());
+            DELAY_MS(40);
         }
-
     }
 }
 
-static void pc_update_counts(double count_in, double count_out) {
+static void pc_update_counts(int count_in, int count_out) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     counter.in_count = counter.in_count + count_in;
     counter.out_count = counter.out_count + count_out;
+    uartprintf("In: %d out: %d\r\n\r\n", counter.in_count, counter.out_count);
     Semaphore_post(Semaphore_handle(&count_sem));
 }
 
