@@ -63,6 +63,8 @@
 #define GE_CMD_INITIAL_RESET 0x3F
 #define GE_CMD_FLAG_RESET 0x30
 
+#define GE_POWER_PIN Board_HDR_PORTF6
+
 /*******************************************************************************
  * TYPEDEFS
  */
@@ -79,7 +81,7 @@ static PIN_Handle enPinHandle;
 static PIN_State enPinState;
 
 static PIN_Config enPinTable[] = {
-    Board_HDR_PORTF6 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
+    GE_POWER_PIN | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
     PIN_TERMINATE
 };
 
@@ -242,8 +244,12 @@ void grideye_get_frame(frame_t frame) {
     }
 }
 
+void grideye_set_power(bool power) {
+    setPin(GE_POWER_PIN, !power);
+}
+
 void grideye_init() {
-    setPin(Board_HDR_PORTF6, false);
+    grideye_set_power(true);
 
     // Reset grideye
     ge_mode = GE_MODE_SLEEP;

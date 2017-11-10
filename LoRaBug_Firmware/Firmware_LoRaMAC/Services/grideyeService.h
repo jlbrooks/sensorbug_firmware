@@ -62,6 +62,8 @@ double grideye_get_ambient_temp(void);
 
 void grideye_get_frame(frame_t frame_buffer);
 
+void grideye_set_power(bool power);
+
 void grideye_init(void);
 
 /*********************************************************************
