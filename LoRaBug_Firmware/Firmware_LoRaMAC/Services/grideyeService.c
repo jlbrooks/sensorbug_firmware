@@ -182,7 +182,7 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
  * @param   mode The mode to enable
  * @return  True if the mode was valid, false otherwise
  */
-bool grideye_set_mode(uint8_t mode) {
+bool grideye_set_mode(ge_mode_t mode) {
     if (ge_mode == mode) {
         return false;  // Already in this mode
     }
