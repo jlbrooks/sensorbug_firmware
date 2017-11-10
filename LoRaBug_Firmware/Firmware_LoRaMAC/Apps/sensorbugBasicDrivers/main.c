@@ -13,6 +13,7 @@
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Event.h>
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/I2C.h>
@@ -42,6 +43,11 @@
 
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
+
+/* Runtime Events */
+#define EVENT_STATECHANGE Event_Id_00
+static Event_Struct runtimeEventsStruct;
+static Event_Handle runtimeEvents;
 
 
 /*------------------------------------------------------------------------*/
@@ -340,6 +346,8 @@ static void OnTxNextPacketTimerEvent( void )
             DeviceState = DEVICE_STATE_JOIN;
         }
     }
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -417,6 +425,8 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
         TimerStart( &Led1Timer );
     }
     NextTx = true;
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -608,6 +618,8 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 //    GpioWrite( &Led2, 0 );
     setLed(Board_RLED, 1);
     TimerStart( &Led2Timer );
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -658,6 +670,8 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
             break;
     }
     NextTx = true;
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -665,6 +679,9 @@ void maintask(UArg arg0, UArg arg1)
     LoRaMacPrimitives_t LoRaMacPrimitives;
     LoRaMacCallback_t LoRaMacCallbacks;
     MibRequestConfirm_t mibReq;
+
+    Event_construct(&runtimeEventsStruct, NULL);
+    runtimeEvents = Event_handle(&runtimeEventsStruct);
 
     BoardInitMcu( );
     BoardInitPeriph( );
@@ -799,10 +816,9 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SLEEP:
             {
-               // printf("# DeviceState: DEVICE_STATE_SLEEP\n");
+                uartprintf("# DeviceState: DEVICE_STATE_SLEEP\r\n");
                 // Wake up through events
-                Task_sleep(TIME_MS * 10);
-                //Task_yield();
+                Event_pend(runtimeEvents, Event_Id_NONE, EVENT_STATECHANGE, BIOS_WAIT_FOREVER);
                 break;
             }
             default:
