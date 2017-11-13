@@ -209,8 +209,6 @@ void user_delay_ms(uint32_t period)
 static void PrepareTxFrame( uint8_t port )
 {
     size_t message_length;
-    //uint32_t pir_status;
-    //uint32_t startTicks,currTicks;
     static CountMessage message = CountMessage_init_zero;
     pb_ostream_t stream;
     bool status;
@@ -222,13 +220,14 @@ static void PrepareTxFrame( uint8_t port )
     {
     case LORAWAN_APP_PORT:
         //Prepare sensor readings to send over LoRa
-
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
         pc_get_counts(&counter, true);
         message.count_in = counter.in_count;
         message.count_out = counter.out_count;
-        uartprintf("Sending %d/%d\r\n", message.count_in, message.count_out);
+        message.batteryVoltage = BoardGetBatteryVoltage();
+        message.batteryLevel = BoardGetBatteryLevel();
+        uartprintf("Sending %d/%d\r\nVoltage: %d\r\nLevel: %d\r\n", message.count_in, message.count_out, message.batteryVoltage, message.batteryLevel);
 
         status = pb_encode(&stream, CountMessage_fields, &message);
         message_length = stream.bytes_written;
