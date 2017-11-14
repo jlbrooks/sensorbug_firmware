@@ -55,7 +55,7 @@ static PIN_Handle pirPinHandle;
 static PIN_State pirPinState;
 
 static PIN_Config pirPinTable[] = {
-    PIR_PIN | PIN_INPUT_EN,
+    PIR_PIN | PIN_INPUT_EN | PIN_PULLDOWN,
     PIN_TERMINATE
 };
 
