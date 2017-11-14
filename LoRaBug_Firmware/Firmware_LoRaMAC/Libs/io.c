@@ -25,7 +25,7 @@
 #include <driverlib/sys_ctrl.h> // SysCtrlSystemReset()
 
 #define UART_PRINTF_BUFFER_SIZE 128 // SHould be at least 5+17 for uarthexdump
-#define UART_RECV_LINE_LENGTH 768
+#define UART_RECV_LINE_LENGTH 512
 #define HEXDUMP_STR_PREFIX "# " // Must be defined, but can be ""
 
 /* Pin driver handle */
