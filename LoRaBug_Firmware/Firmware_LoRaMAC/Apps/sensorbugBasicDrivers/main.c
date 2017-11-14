@@ -357,7 +357,7 @@ static void OnLed1TimerEvent( void )
     TimerStop( &Led1Timer );
     // Switch LED 1 OFF
 //    GpioWrite( &Led1, 1 );
-    setLed(Board_GLED, 0);
+    //setLed(Board_GLED, 0);
 }
 
 /*!
@@ -368,7 +368,7 @@ static void OnLed2TimerEvent( void )
     TimerStop( &Led2Timer );
     // Switch LED 2 OFF
 //    GpioWrite( &Led2, 1 );
-    setLed(Board_RLED, 0);
+    //setLed(Board_RLED, 0);
 }
 
 /*!
