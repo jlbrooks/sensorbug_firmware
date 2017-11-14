@@ -109,7 +109,7 @@ static uint8_t grideye_read_byte(uint8_t addr) {
 
     handle = I2C_open(Board_I2C, &params);
     if(!handle) {
-        uartprintf("Error opening i2c handle during read\r\n");
+        //uartprintf("Error opening i2c handle during read\r\n");
     }
 
     i2cTrans.slaveAddress = GE_SLAVE_ADDRESS;
@@ -123,7 +123,7 @@ static uint8_t grideye_read_byte(uint8_t addr) {
     bool status = false;
     status = I2C_transfer(handle, &i2cTrans);
     if (!status) {
-        uartprintf("Failed to read i2c grideye data\r\n");
+        //uartprintf("Failed to read i2c grideye data\r\n");
     }
     I2C_close(handle);
 
@@ -151,7 +151,7 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
 
     handle = I2C_open(Board_I2C, &params);
     if(!handle) {
-        uartprintf("Error opening i2c handle during write\r\n");
+        //uartprintf("Error opening i2c handle during write\r\n");
     }
 
     i2cTrans.slaveAddress = GE_SLAVE_ADDRESS;
@@ -168,7 +168,7 @@ static void grideye_write_bytes(uint8_t addr, uint8_t *data, uint8_t length) {
     bool status = false;
     status = I2C_transfer(handle, &i2cTrans);
     if (!status) {
-        uartprintf("Failed to write i2c grideye data\r\n");
+        //uartprintf("Failed to write i2c grideye data\r\n");
     }
     I2C_close(handle);
 }

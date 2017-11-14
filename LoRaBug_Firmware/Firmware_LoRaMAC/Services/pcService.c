@@ -267,13 +267,13 @@ static void update_internal_counter(void) {
 static void print_frame(uint16_t *frame) {
     for (int i = 0; i < GE_FRAME_SIZE; i++) {
         if (i < GE_FRAME_SIZE - 1) {
-            uartprintf("%d,", frame[i]);
+            //uartprintf("%d,", frame[i]);
         } else {
-            uartprintf("%d", frame[i]);
+            //uartprintf("%d", frame[i]);
         }
     }
-    uartprintf("\r\n");
-    uartprintf("\r\n");
+    //uartprintf("\r\n");
+    //uartprintf("\r\n");
 }
 
 static void onPIR(PIN_Handle handle, PIN_Id pinId) {
@@ -300,11 +300,11 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
     while (1) {
         if (inactivity_counter >= INACTIVITY_COUNTER_THRESHOLD) {
-            uartprintf("Going to sleep because of inactivity..\r\n");
+            //uartprintf("Going to sleep because of inactivity..\r\n");
             pir_disable_interrupt();
             // Set grideye mode
             grideye_set_mode(GE_MODE_SLEEP);
-            //grideye_set_power(false);
+            //grideye_set_power(true);
 
             // Indicate to PIR that we're sleeping
             sleeping = true;
@@ -316,11 +316,11 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
             // If here, then we were woken up by PIR
             sleeping = false;
-            //grideye_set_power(true);
+            //grideye_set_power(false);
             setLed(Board_GLED, 1);
             grideye_set_mode(GE_MODE_NORMAL);
             DELAY_MS(800);
-            uartprintf("Woke up!\r\n");
+            //uartprintf("Woke up!\r\n");
         } else {
             grideye_get_frame(frame);
             pc_new_frame(frame);
@@ -334,6 +334,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             } else {
                 inactivity_counter += 1;
             }
+            //toggleLed(Board_RLED);
             //uartprintf("PIR: %d\r\n", pir_get_value());
             //DELAY_MS(50);
         }
@@ -344,7 +345,7 @@ static void pc_update_counts(int count_in, int count_out) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     counter.in_count = counter.in_count + count_in;
     counter.out_count = counter.out_count + count_out;
-    uartprintf("In: %d out: %d\r\n\r\n", counter.in_count, counter.out_count);
+    //uartprintf("In: %d out: %d\r\n\r\n", counter.in_count, counter.out_count);
     Semaphore_post(Semaphore_handle(&count_sem));
 }
 
