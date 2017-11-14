@@ -420,7 +420,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 
         // Switch LED 1 ON
 //        GpioWrite( &Led1, 0 );
-        setLed(Board_GLED, 1);
+        //setLed(Board_GLED, 1);
         TimerStart( &Led1Timer );
     }
     NextTx = true;
@@ -491,7 +491,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
             {
                 AppLedStateOn = mcpsIndication->Buffer[0] & 0x01;
 //                GpioWrite( &Led3, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 0 : 1 );
-                setLed(Board_RLED, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0);
+                //setLed(Board_RLED, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0);
             }
             break;
         case 224:
@@ -615,7 +615,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 
     // Switch LED 2 ON for each received downlink
 //    GpioWrite( &Led2, 0 );
-    setLed(Board_RLED, 1);
+    //setLed(Board_RLED, 1);
     TimerStart( &Led2Timer );
 
     Event_post(runtimeEvents, EVENT_STATECHANGE);

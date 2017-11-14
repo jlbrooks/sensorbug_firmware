@@ -56,6 +56,9 @@
 #define NUM_TRIGGER_COLUMNS 2
 #define TRIGGER_INDEX (NUM_MEDIAN_FRAMES/2)
 
+#define OFFSET_START 1
+#define OFFSET_END 3
+
 #define TRIGGER_THRESHOLD 6  // Threshold to detect as a person
 #define LOWER_THRESHOLD 4  // Threshold for heat signature difference in frames
 #define UPPER_THRESHOLD 20  // Threshold for heat signature difference in frames
@@ -210,29 +213,21 @@ static direction_t determine_direction(uint16_t frame_index, int16_t trigger_col
     int16_t current_max = current_frame[GET_FRAME_INDEX(current_max_index, trigger_col)];
 
     if (current_max >= TRIGGER_THRESHOLD && is_local_max(current_frame, current_max_index, trigger_col)) {
-        //uartprintf("CHECKING COL %d\r\n", check_col);
-        //uartprintf("Found local max: %d\r\n", current_max);
         // Check the past
-        for (uint16_t i = 1; i < 3; i++) { // TODO: MAGIC NUMBERS
+        for (uint16_t i = OFFSET_START; i < OFFSET_END; i++) {
             frame_t past_frame = frame_queue_get(&medianFrames, frame_index-i);
             uint16_t past_max_index = get_max_index_in_col(past_frame, check_col);
             int16_t past_max = past_frame[GET_FRAME_INDEX(past_max_index, check_col)];
-            //uartprintf("Past max[%d]: %d\r\n", i, past_max);
             if (within_threshold(current_max, past_max) && is_local_max(past_frame, past_max_index, check_col)) {
-                //uartprintf("COUNTING PAST\r\n");
                 return (offset > 0) ? DIR_OUT : DIR_IN;
             }
         }
-        // TODO: These loops are similar, refactor?
-
         // Check the future
-        for (uint16_t i = 1; i < 3; i++) { // TODO: MAGIC NUMBERS
+        for (uint16_t i = OFFSET_START; i < OFFSET_END; i++) {
             frame_t future_frame = frame_queue_get(&medianFrames, frame_index+i);
             uint16_t future_max_index = get_max_index_in_col(future_frame, check_col);
             int16_t future_max = future_frame[GET_FRAME_INDEX(future_max_index, check_col)];
-            //uartprintf("Future[%d]: %d\r\n", i, future_max);
             if (within_threshold(current_max, future_max) && is_local_max(future_frame, future_max_index, check_col)) {
-                //uartprintf("COUNTING FUTURE\r\n");
                 return (offset > 0) ? DIR_IN : DIR_OUT;
             }
         }
@@ -309,6 +304,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             pir_disable_interrupt();
             // Set grideye mode
             grideye_set_mode(GE_MODE_SLEEP);
+            //grideye_set_power(false);
 
             // Indicate to PIR that we're sleeping
             sleeping = true;
@@ -320,8 +316,10 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
             // If here, then we were woken up by PIR
             sleeping = false;
+            //grideye_set_power(true);
             setLed(Board_GLED, 1);
             grideye_set_mode(GE_MODE_NORMAL);
+            DELAY_MS(800);
             uartprintf("Woke up!\r\n");
         } else {
             grideye_get_frame(frame);
@@ -331,13 +329,11 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
             if (in_count > 0 || out_count > 0) {
                 pc_update_counts(in_count, out_count);
-                //uartprintf("In: %d out: %d\r\n", (in_count / 2 + in_count % 2), (out_count / 2 + out_count % 2));
                 // If we saw any activity, then reset inactivity counter
                 inactivity_counter = 0;
             } else {
                 inactivity_counter += 1;
             }
-            //toggleLed(Board_RLED);
             //uartprintf("PIR: %d\r\n", pir_get_value());
             //DELAY_MS(50);
         }
