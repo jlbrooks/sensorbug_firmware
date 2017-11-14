@@ -295,7 +295,8 @@ static void onPIR(PIN_Handle handle, PIN_Id pinId) {
  */
 static void pc_taskFxn(UArg a0, UArg a1) {
     static frame_elem_t frame[GE_FRAME_SIZE];
-    int in_count, out_count;
+    int in_count = 0;
+    int out_count = 0;
     DELAY_MS(5000);
     grideye_init();
     pir_init(onPIR);
@@ -337,8 +338,8 @@ static void pc_taskFxn(UArg a0, UArg a1) {
                 inactivity_counter += 1;
             }
             //toggleLed(Board_RLED);
-            //uartprintf("PIR: %d\r\n", pir_get_value());
-            DELAY_MS(40);
+            uartprintf("PIR: %d\r\n", pir_get_value());
+            DELAY_MS(50);
         }
     }
 }
