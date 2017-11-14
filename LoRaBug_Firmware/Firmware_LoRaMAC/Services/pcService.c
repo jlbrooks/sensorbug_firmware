@@ -338,8 +338,8 @@ static void pc_taskFxn(UArg a0, UArg a1) {
                 inactivity_counter += 1;
             }
             //toggleLed(Board_RLED);
-            uartprintf("PIR: %d\r\n", pir_get_value());
-            DELAY_MS(50);
+            //uartprintf("PIR: %d\r\n", pir_get_value());
+            //DELAY_MS(50);
         }
     }
 }
