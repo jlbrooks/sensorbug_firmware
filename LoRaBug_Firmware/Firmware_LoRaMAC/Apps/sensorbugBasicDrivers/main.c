@@ -30,6 +30,7 @@
 
 #include "board.h"
 #include "io.h"
+#include "Services/ble_rf.h"
 
 #include "LoRaMac.h"
 
@@ -833,11 +834,14 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
+static uint8_t payload[3] = { 0x02, 0x01, 0x06 };
+
 int dummy(UArg arg1, UArg arg2) {
     BoardInitMcu( );
     BoardInitPeriph( );
     while (1) {
-        Task_sleep(TIME_MS * 50000);
+        send_advertisement(38, payload, 3);
+        Task_sleep(TIME_MS * 50);
     }
 }
 
@@ -861,7 +865,7 @@ int main(void)
     taskParams.arg0 = 1000000 / Clock_tickPeriod;
     taskParams.stackSize = TASKSTACKSIZE;
     taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
+    Task_construct(&task0Struct, (Task_FuncPtr) dummy, &taskParams, NULL);
 
     pcService_createTask();
 
