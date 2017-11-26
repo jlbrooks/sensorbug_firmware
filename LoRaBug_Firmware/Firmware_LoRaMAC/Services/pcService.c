@@ -45,7 +45,7 @@
  * CONSTANTS
  */
 #define PC_TASK_PRIORITY                     5
-#define PC_TASK_STACK_SIZE                   2048
+#define PC_TASK_STACK_SIZE                   1500
 
 #define NUM_RAW_FRAMES 15
 #define NUM_MEDIAN_FRAMES 7

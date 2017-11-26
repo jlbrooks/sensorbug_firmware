@@ -15,6 +15,9 @@
 #include <rf_patches/rf_patch_cpe_ble.h>
 #include <rf_patches/rf_patch_rfe_ble.h>
 
+#define ADV_CHANNEL_START 37
+#define ADV_CHANNEL_END 39
+
 // Overrides for CMD_RADIO_SETUP
 static uint32_t pOverrides[] =
 {
@@ -65,7 +68,7 @@ static uint32_t pOverrides[] =
 
 static uint16_t advAddress[6] = {0x0011,0x2233,0x4455,0x33,0x44,0x55};
 
-void send_advertisement(int channel, uint8_t *adv_payload, int adv_payload_len) {
+void send_advertisement(uint8_t *adv_payload, int adv_payload_len) {
     RF_Object ble_rfObj;
     RF_Handle ble_handle;
     RF_Params ble_params;
@@ -131,64 +134,64 @@ void send_advertisement(int channel, uint8_t *adv_payload, int adv_payload_len) 
 
     RF_runCmd(ble_handle, (RF_Op *) &RF_cmdFs, RF_PriorityNormal, NULL, 0);
 
-    // Structure for CMD_BLE_ADV_NC.pParams
-    rfc_bleAdvPar_t bleAdvPar =
-    {
-        .pRxQ = 0,
-        .rxConfig.bAutoFlushIgnored = 0x0,
-        .rxConfig.bAutoFlushCrcErr = 0x0,
-        .rxConfig.bAutoFlushEmpty = 0x0,
-        .rxConfig.bIncludeLenByte = 0x0,
-        .rxConfig.bIncludeCrc = 0x0,
-        .rxConfig.bAppendRssi = 0x0,
-        .rxConfig.bAppendStatus = 0x0,
-        .rxConfig.bAppendTimestamp = 0x0,
-        .advConfig.advFilterPolicy = 0x0,
-        .advConfig.deviceAddrType = 0x0,
-        .advConfig.peerAddrType = 0x0,
-        .advConfig.bStrictLenFilter = 0x0,
-        .advConfig.rpaMode = 0x0,
-        .advLen = adv_payload_len,
-        .scanRspLen = 0x00,
-        .pAdvData = adv_payload,
-        .pScanRspData = 0,
-        .pDeviceAddress = advAddress,
-        .pWhiteList = 0,
-        .__dummy0 = 0x0000,
-        .__dummy1 = 0x00,
-        .endTrigger.triggerType = 0x1,
-        .endTrigger.bEnaCmd = 0x0,
-        .endTrigger.triggerNo = 0x0,
-        .endTrigger.pastTrig = 0x0,
-        .endTime = 0x00000000,
-    };
+    // Send message on each advertisement channel
+    for (int i = ADV_CHANNEL_START; i <= ADV_CHANNEL_END; i++) {
+        // Structure for CMD_BLE_ADV_NC.pParams
+        rfc_bleAdvPar_t bleAdvPar =
+        {
+            .pRxQ = 0,
+            .rxConfig.bAutoFlushIgnored = 0x0,
+            .rxConfig.bAutoFlushCrcErr = 0x0,
+            .rxConfig.bAutoFlushEmpty = 0x0,
+            .rxConfig.bIncludeLenByte = 0x0,
+            .rxConfig.bIncludeCrc = 0x0,
+            .rxConfig.bAppendRssi = 0x0,
+            .rxConfig.bAppendStatus = 0x0,
+            .rxConfig.bAppendTimestamp = 0x0,
+            .advConfig.advFilterPolicy = 0x0,
+            .advConfig.deviceAddrType = 0x0,
+            .advConfig.peerAddrType = 0x0,
+            .advConfig.bStrictLenFilter = 0x0,
+            .advConfig.rpaMode = 0x0,
+            .advLen = adv_payload_len,
+            .scanRspLen = 0x00,
+            .pAdvData = adv_payload,
+            .pScanRspData = 0,
+            .pDeviceAddress = advAddress,
+            .pWhiteList = 0,
+            .__dummy0 = 0x0000,
+            .__dummy1 = 0x00,
+            .endTrigger.triggerType = 0x1,
+            .endTrigger.bEnaCmd = 0x0,
+            .endTrigger.triggerNo = 0x0,
+            .endTrigger.pastTrig = 0x0,
+            .endTime = 0x00000000,
+        };
 
 
-    // CMD_BLE_ADV_NC
-    // BLE Non-Connectable Advertiser Command
-    rfc_CMD_BLE_ADV_NC_t RF_cmdBleAdvNc =
-    {
-        .commandNo = 0x1805,
-        .status = 0x0000,
-        .pNextOp = 0,
-        .startTime = 0x00000000,
-        .startTrigger.triggerType = 0x0,
-        .startTrigger.bEnaCmd = 0x0,
-        .startTrigger.triggerNo = 0x0,
-        .startTrigger.pastTrig = 0x0,
-        .condition.rule = 0x1,
-        .condition.nSkip = 0x0,
-        .channel = channel,
-        .whitening.init = 0x66,
-        .whitening.bOverride = 0x1,
-        .pParams = &bleAdvPar,
-        .pOutput = 0,
-    };
+        // CMD_BLE_ADV_NC
+        // BLE Non-Connectable Advertiser Command
+        rfc_CMD_BLE_ADV_NC_t RF_cmdBleAdvNc =
+        {
+            .commandNo = 0x1805,
+            .status = 0x0000,
+            .pNextOp = 0,
+            .startTime = 0x00000000,
+            .startTrigger.triggerType = 0x0,
+            .startTrigger.bEnaCmd = 0x0,
+            .startTrigger.triggerNo = 0x0,
+            .startTrigger.pastTrig = 0x0,
+            .condition.rule = 0x1,
+            .condition.nSkip = 0x0,
+            .channel = i,
+            .whitening.init = 0x66,
+            .whitening.bOverride = 0x1,
+            .pParams = &bleAdvPar,
+            .pOutput = 0,
+        };
 
-    for (int i = 0; i < 500; i++) {
         RF_runCmd(ble_handle, (RF_Op *) &RF_cmdBleAdvNc, RF_PriorityNormal, NULL, 0);
     }
-
 
     RF_close(ble_handle);
 }
