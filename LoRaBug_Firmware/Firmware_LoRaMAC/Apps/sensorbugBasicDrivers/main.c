@@ -104,7 +104,9 @@ static TimerEvent_t buttonTimer;
  */
 #define LORAWAN_APP_DATA_SIZE                       11
 
-static uint8_t DevEui[] = LORAWAN_DEVICE_EUI;
+#define LORAWAN_DEV_EUI_SIZE 8
+
+static uint8_t DevEui[LORAWAN_DEV_EUI_SIZE];
 static uint8_t AppEui[] = LORAWAN_APPLICATION_EUI;
 static uint8_t AppKey[] = LORAWAN_APPLICATION_KEY;
 
@@ -701,6 +703,14 @@ static void OnButtonTimerEvent( void )
     }
 }
 
+static void loadDeviceInfo() {
+    // Dev EUI is device BLE address
+    uint64_t bleAddress = *((uint64_t *)(FCFG1_BASE + FCFG1_O_MAC_BLE_0)) & 0xFFFFFFFFFFFF;
+    for (int i = 0; i < 8; i++) {
+        DevEui[i] = (bleAddress >> (8*i)) & 0xff;
+    }
+}
+
 void maintask(UArg arg0, UArg arg1)
 {
     LoRaMacPrimitives_t LoRaMacPrimitives;
@@ -712,6 +722,7 @@ void maintask(UArg arg0, UArg arg1)
 
     BoardInitMcu( );
     BoardInitPeriph( );
+    loadDeviceInfo();
     DELAY_MS(5000);
     uartprintf ("# Board initialized\r\n");
 
@@ -772,11 +783,12 @@ void maintask(UArg arg0, UArg arg1)
 
                 // While broadcasting, send advertisements out every 50 ms
                 // Button interrupt will change the state to join
-                uint64_t bleAddress = *((uint64_t *)(FCFG1_BASE + FCFG1_O_MAC_BLE_0)) & 0xFFFFFFFFFFFF;
+                blePayload[0] = 0x09; // 9 bytes after this one
+                blePayload[1] = 0x16; // 0x16 is service data
                 for (int i = 0; i < 8; i++) {
-                    blePayload[i] = (bleAddress >> (8*i)) & 0xff;
+                    blePayload[i+2] = DevEui[i];
                 }
-                send_advertisement(blePayload, 8);
+                send_advertisement(blePayload, 10);
                 user_delay_ms(BLE_ADV_DUTY_CYCLE_MS);
                 break;
             }
