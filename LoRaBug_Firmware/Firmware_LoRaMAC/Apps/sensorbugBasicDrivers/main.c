@@ -40,6 +40,8 @@
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
+#include <driverlib/flash.h>
+#include <driverlib/vims.h>
 
 // For retrieving BLE address
 #include <inc/hw_fcfg1.h>
@@ -105,6 +107,7 @@ static TimerEvent_t buttonTimer;
 #define LORAWAN_APP_DATA_SIZE                       11
 
 #define LORAWAN_DEV_EUI_SIZE 8
+#define LORAWAN_APP_KEY_SIZE 16
 
 static uint8_t DevEui[LORAWAN_DEV_EUI_SIZE];
 static uint8_t AppEui[] = LORAWAN_APPLICATION_EUI;
@@ -688,6 +691,74 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
     Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
+
+/*********************************************************************
+ * @fn      enableCache
+ *
+ * @brief   enable cache.
+ *
+ * @param   state - the VIMS state returned from disableCache.
+ *
+ * @return  none.
+ */
+static void enableCache ( uint8_t state )
+{
+  if ( state != VIMS_MODE_DISABLED )
+  {
+    // Enable the Cache.
+    VIMSModeSet( VIMS_BASE, VIMS_MODE_ENABLED );
+  }
+}
+
+/*********************************************************************
+ * @fn      disableCache
+ *
+ * @brief   invalidate and disable cache.
+ *
+ * @param   none
+ *
+ * @return  VIMS state
+ */
+static uint8_t disableCache ( void )
+{
+  uint8_t state = VIMSModeGet( VIMS_BASE );
+
+  // Check VIMS state
+  if ( state != VIMS_MODE_DISABLED )
+  {
+    // Invalidate cache
+    VIMSModeSet( VIMS_BASE, VIMS_MODE_DISABLED );
+
+    // Wait for disabling to be complete
+    while ( VIMSModeGet( VIMS_BASE ) != VIMS_MODE_DISABLED );
+
+  }
+
+  return state;
+}
+
+static bool hasJoined() {
+    uint8_t val;
+    memcpy(&val, 0x1F000, 1);
+
+    return (val == 0x42);
+}
+
+static void setJoined(bool joined) {
+    uint8_t val;
+    uint8_t state = disableCache();
+    FlashSectorErase(0x1F000);
+    if (joined) {
+        val = 0x42;
+    } else {
+        val = 0x00;
+    }
+
+    FlashProgram(&val, 0x1F000, 1);
+    enableCache(state);
+}
+
+
 static void btnIntCallback(PIN_Handle handle, PIN_Id pinId)
 {
     TimerReset(&buttonTimer);
@@ -700,15 +771,13 @@ static void OnButtonTimerEvent( void )
         Event_post(runtimeEvents, EVENT_STATECHANGE);
     } else if (DeviceState == DEVICE_STATE_BROADCAST) {
         DeviceState = DEVICE_STATE_JOIN;
+        setJoined(true);
     }
 }
 
 static void loadDeviceInfo() {
     // Dev EUI is device BLE address
-    uint64_t bleAddress = *((uint64_t *)(FCFG1_BASE + FCFG1_O_MAC_BLE_0)) & 0xFFFFFFFFFFFF;
-    for (int i = 0; i < 8; i++) {
-        DevEui[i] = (bleAddress >> (8*i)) & 0xff;
-    }
+    BoardGetUniqueId(DevEui);
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -723,6 +792,8 @@ void maintask(UArg arg0, UArg arg1)
     BoardInitMcu( );
     BoardInitPeriph( );
     loadDeviceInfo();
+    setLed(Board_GLED, 0);
+    setLed(Board_RLED, 1);
     DELAY_MS(5000);
     uartprintf ("# Board initialized\r\n");
 
@@ -764,7 +835,11 @@ void maintask(UArg arg0, UArg arg1)
                 mibReq.Param.EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK;
                 LoRaMacMibSetRequestConfirm( &mibReq );
 
-                DeviceState = DEVICE_STATE_WAIT;
+                if (hasJoined()) {
+                    DeviceState = DEVICE_STATE_JOIN;
+                } else {
+                    DeviceState = DEVICE_STATE_WAIT;
+                }
                 break;
             }
             case DEVICE_STATE_WAIT:
