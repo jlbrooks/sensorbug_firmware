@@ -63,6 +63,9 @@ static uint8_t blePayload[BLE_PAYLOAD_MAX_SIZE];
 
 static TimerEvent_t buttonTimer;
 
+#define JOINED_STATUS_FLASH_ADDR 0x1FFFF
+#define JOINED_STATUS_VAL 0x42
+
 /*------------------------------------------------------------------------*/
 /*                      Start of LoRaWan Demo Code                        */
 /*------------------------------------------------------------------------*/
@@ -219,6 +222,71 @@ struct ComplianceTest_s
 void user_delay_ms(uint32_t period)
 {
     DELAY_MS(period);
+}
+
+/*********************************************************************
+ * @fn      enableCache
+ *
+ * @brief   enable cache.
+ *
+ * @param   state - the VIMS state returned from disableCache.
+ *
+ * @return  none.
+ */
+static void enableCache ( uint8_t state )
+{
+  if ( state != VIMS_MODE_DISABLED )
+  {
+    // Enable the Cache.
+    VIMSModeSet( VIMS_BASE, VIMS_MODE_ENABLED );
+  }
+}
+
+/*********************************************************************
+ * @fn      disableCache
+ *
+ * @brief   invalidate and disable cache.
+ *
+ * @param   none
+ *
+ * @return  VIMS state
+ */
+static uint8_t disableCache ( void )
+{
+  uint8_t state = VIMSModeGet( VIMS_BASE );
+
+  // Check VIMS state
+  if ( state != VIMS_MODE_DISABLED )
+  {
+    // Invalidate cache
+    VIMSModeSet( VIMS_BASE, VIMS_MODE_DISABLED );
+
+    // Wait for disabling to be complete
+    while ( VIMSModeGet( VIMS_BASE ) != VIMS_MODE_DISABLED );
+
+  }
+
+  return state;
+}
+
+static bool hasJoined() {
+    uint8_t val;
+    memcpy(&val, (void *) JOINED_STATUS_FLASH_ADDR, 1);
+
+    return (val == JOINED_STATUS_VAL);
+}
+
+static void setJoined(bool joined) {
+    uint8_t val;
+    uint8_t state = disableCache();
+    if (joined) {
+        val = JOINED_STATUS_VAL;
+    } else {
+        val = 0x00;
+    }
+
+    FlashProgram(&val, JOINED_STATUS_FLASH_ADDR, 1);
+    enableCache(state);
 }
 
 /*!
@@ -657,6 +725,7 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
             {
                 // Status is OK, node has joined the network
                 uartprintf ("# Got OK status\r\n");
+                setJoined(true);
                 DeviceState = DEVICE_STATE_SEND;
             }
             else
@@ -692,73 +761,6 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 }
 
 
-/*********************************************************************
- * @fn      enableCache
- *
- * @brief   enable cache.
- *
- * @param   state - the VIMS state returned from disableCache.
- *
- * @return  none.
- */
-static void enableCache ( uint8_t state )
-{
-  if ( state != VIMS_MODE_DISABLED )
-  {
-    // Enable the Cache.
-    VIMSModeSet( VIMS_BASE, VIMS_MODE_ENABLED );
-  }
-}
-
-/*********************************************************************
- * @fn      disableCache
- *
- * @brief   invalidate and disable cache.
- *
- * @param   none
- *
- * @return  VIMS state
- */
-static uint8_t disableCache ( void )
-{
-  uint8_t state = VIMSModeGet( VIMS_BASE );
-
-  // Check VIMS state
-  if ( state != VIMS_MODE_DISABLED )
-  {
-    // Invalidate cache
-    VIMSModeSet( VIMS_BASE, VIMS_MODE_DISABLED );
-
-    // Wait for disabling to be complete
-    while ( VIMSModeGet( VIMS_BASE ) != VIMS_MODE_DISABLED );
-
-  }
-
-  return state;
-}
-
-static bool hasJoined() {
-    uint8_t val;
-    memcpy(&val, 0x1F000, 1);
-
-    return (val == 0x42);
-}
-
-static void setJoined(bool joined) {
-    uint8_t val;
-    uint8_t state = disableCache();
-    FlashSectorErase(0x1F000);
-    if (joined) {
-        val = 0x42;
-    } else {
-        val = 0x00;
-    }
-
-    FlashProgram(&val, 0x1F000, 1);
-    enableCache(state);
-}
-
-
 static void btnIntCallback(PIN_Handle handle, PIN_Id pinId)
 {
     TimerReset(&buttonTimer);
@@ -767,11 +769,11 @@ static void btnIntCallback(PIN_Handle handle, PIN_Id pinId)
 static void OnButtonTimerEvent( void )
 {
     TimerStop( &buttonTimer );
-    if (DeviceState == DEVICE_STATE_WAIT) {
-        Event_post(runtimeEvents, EVENT_STATECHANGE);
-    } else if (DeviceState == DEVICE_STATE_BROADCAST) {
+    if (DeviceState == DEVICE_STATE_BROADCAST) {
         DeviceState = DEVICE_STATE_JOIN;
-        setJoined(true);
+    } else {
+        DeviceState = DEVICE_STATE_BROADCAST;
+        Event_post(runtimeEvents, EVENT_STATECHANGE);
     }
 }
 
@@ -792,8 +794,6 @@ void maintask(UArg arg0, UArg arg1)
     BoardInitMcu( );
     BoardInitPeriph( );
     loadDeviceInfo();
-    setLed(Board_GLED, 0);
-    setLed(Board_RLED, 1);
     DELAY_MS(5000);
     uartprintf ("# Board initialized\r\n");
 
@@ -840,16 +840,6 @@ void maintask(UArg arg0, UArg arg1)
                 } else {
                     DeviceState = DEVICE_STATE_WAIT;
                 }
-                break;
-            }
-            case DEVICE_STATE_WAIT:
-            {
-                uartprintf ("# DeviceState: DEVICE_STATE_WAIT\r\n");
-
-                // Sleep until button press
-                Event_pend(runtimeEvents, Event_Id_NONE, EVENT_STATECHANGE, BIOS_WAIT_FOREVER);
-
-                DeviceState = DEVICE_STATE_BROADCAST;
                 break;
             }
             case DEVICE_STATE_BROADCAST:
@@ -960,9 +950,6 @@ void maintask(UArg arg0, UArg arg1)
             {
                 uartprintf ("# DeviceState: DEVICE_STATE_SLEEP\r\n");
                 // Wake up through events
-                toggleLed(Board_GLED);
-                Task_sleep(TIME_MS*100);
-                toggleLed(Board_GLED);
                 Event_pend(runtimeEvents, Event_Id_NONE, EVENT_STATECHANGE, BIOS_WAIT_FOREVER);
                 break;
             }
