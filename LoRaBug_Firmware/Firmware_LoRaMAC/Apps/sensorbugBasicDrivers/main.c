@@ -56,7 +56,7 @@ Char task0Stack[TASKSTACKSIZE];
 static Event_Struct runtimeEventsStruct;
 static Event_Handle runtimeEvents;
 
-#define BLE_ADV_DUTY_CYCLE_MS 50
+#define BLE_ADV_DUTY_CYCLE_MS 100
 #define BLE_PAYLOAD_MAX_SIZE 30
 
 static uint8_t blePayload[BLE_PAYLOAD_MAX_SIZE];
@@ -194,7 +194,6 @@ static bool NextTx = true;
 static enum eDeviceState
 {
     DEVICE_STATE_INIT,
-    DEVICE_STATE_WAIT,
     DEVICE_STATE_BROADCAST,
     DEVICE_STATE_JOIN,
     DEVICE_STATE_SEND,
@@ -780,6 +779,11 @@ static void OnButtonTimerEvent( void )
 static void loadDeviceInfo() {
     // Dev EUI is device BLE address
     BoardGetUniqueId(DevEui);
+    uartprintf("Dev EUI:\r\n");
+    for (int i = 0; i < 8; i++) {
+        uartprintf("%02x", DevEui[i]);
+    }
+    uartprintf("\r\n");
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -793,8 +797,8 @@ void maintask(UArg arg0, UArg arg1)
 
     BoardInitMcu( );
     BoardInitPeriph( );
-    loadDeviceInfo();
     DELAY_MS(5000);
+    loadDeviceInfo();
     uartprintf ("# Board initialized\r\n");
 
     DeviceState = DEVICE_STATE_INIT;
@@ -838,7 +842,7 @@ void maintask(UArg arg0, UArg arg1)
                 if (hasJoined()) {
                     DeviceState = DEVICE_STATE_JOIN;
                 } else {
-                    DeviceState = DEVICE_STATE_WAIT;
+                    DeviceState = DEVICE_STATE_SLEEP;
                 }
                 break;
             }
