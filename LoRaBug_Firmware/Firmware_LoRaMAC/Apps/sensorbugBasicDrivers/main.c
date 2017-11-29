@@ -62,6 +62,7 @@ static Event_Handle runtimeEvents;
 static uint8_t blePayload[BLE_PAYLOAD_MAX_SIZE];
 
 static TimerEvent_t buttonTimer;
+static TimerEvent_t broadcastTimer;
 
 #define JOINED_STATUS_FLASH_ADDR 0x1FFFF
 #define JOINED_STATUS_VAL 0x42
@@ -307,9 +308,9 @@ static void PrepareTxFrame( uint8_t port )
         //Prepare sensor readings to send over LoRa
         stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
 
-        //pc_get_counts(&counter, true);
-        message.count_in = 0;
-        message.count_out = 0;
+        pc_get_counts(&counter, true);
+        message.count_in = counter.in_count;
+        message.count_out = counter.out_count;
         message.batteryVoltage = BoardGetBatteryVoltage();
         message.batteryLevel = BoardGetBatteryLevel();
         uartprintf ("Sending %d/%d\r\nVoltage: %d\r\nLevel: %d\r\n", message.count_in, message.count_out, message.batteryVoltage, message.batteryLevel);
@@ -759,6 +760,10 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
     Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
+static void OnBroadcastTimerEvent(void) {
+    TimerStop(&broadcastTimer);
+    DeviceState = DEVICE_STATE_SEND;
+}
 
 static void btnIntCallback(PIN_Handle handle, PIN_Id pinId)
 {
@@ -772,6 +777,14 @@ static void OnButtonTimerEvent( void )
         DeviceState = DEVICE_STATE_JOIN;
     } else {
         DeviceState = DEVICE_STATE_BROADCAST;
+        if (hasJoined()) {
+            TimerStart(&broadcastTimer);
+        }
+        uartprintf("Dev EUI:\r\n");
+        for (int i = 0; i < 8; i++) {
+            uartprintf("%02x", DevEui[i]);
+        }
+        uartprintf("\r\n");
         Event_post(runtimeEvents, EVENT_STATECHANGE);
     }
 }
@@ -779,11 +792,6 @@ static void OnButtonTimerEvent( void )
 static void loadDeviceInfo() {
     // Dev EUI is device BLE address
     BoardGetUniqueId(DevEui);
-    uartprintf("Dev EUI:\r\n");
-    for (int i = 0; i < 8; i++) {
-        uartprintf("%02x", DevEui[i]);
-    }
-    uartprintf("\r\n");
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -830,6 +838,9 @@ void maintask(UArg arg0, UArg arg1)
                 TimerInit(&buttonTimer, OnButtonTimerEvent);
                 TimerSetValue(&buttonTimer, 1000);
                 setBtnIntCallback(btnIntCallback);
+
+                TimerInit(&broadcastTimer, OnBroadcastTimerEvent);
+                TimerSetValue(&broadcastTimer, 10000);
 
                 mibReq.Type = MIB_ADR;
                 mibReq.Param.AdrEnable = LORAWAN_ADR_ON;
