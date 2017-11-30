@@ -298,14 +298,12 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             sleeping = true;
 
             // Sleep on semaphore
-            setLed(Board_GLED, 0);
             pir_enable_interrupt();
             Semaphore_pend(Semaphore_handle(&sleep_sem), BIOS_WAIT_FOREVER);
 
             // If here, then we were woken up by PIR
             sleeping = false;
             //grideye_set_power(false);
-            setLed(Board_GLED, 1);
             grideye_set_mode(GE_MODE_NORMAL);
             DELAY_MS(800);
             uartprintf("Woke up!\r\n");
