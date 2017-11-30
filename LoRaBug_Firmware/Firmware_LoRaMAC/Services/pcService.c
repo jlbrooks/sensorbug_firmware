@@ -264,18 +264,6 @@ static void update_internal_counter(void) {
     internal_counter.count_updated = true;
 }
 
-static void print_frame(uint16_t *frame) {
-    for (int i = 0; i < GE_FRAME_SIZE; i++) {
-        if (i < GE_FRAME_SIZE - 1) {
-            uartprintf("%d,", frame[i]);
-        } else {
-            uartprintf("%d", frame[i]);
-        }
-    }
-    uartprintf("\r\n");
-    uartprintf("\r\n");
-}
-
 static void onPIR(PIN_Handle handle, PIN_Id pinId) {
     inactivity_counter = 0;
     // If we're sleeping, wake up the PC task
