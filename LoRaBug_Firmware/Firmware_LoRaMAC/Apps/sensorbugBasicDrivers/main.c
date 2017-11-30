@@ -162,26 +162,6 @@ static uint32_t TxDutyCycleTime;
 static TimerEvent_t TxNextPacketTimer;
 
 /*!
- * Specifies the state of the application LED
- */
-static bool AppLedStateOn = false;
-
-/*!
- * Timer to handle the state of LED1
- */
-static TimerEvent_t Led1Timer;
-
-/*!
- * Timer to handle the state of LED2
- */
-static TimerEvent_t Led2Timer;
-
-/*!
- * Timer to handle the state of LED4
- */
-static TimerEvent_t Led4Timer;
-
-/*!
  * Indicates if a new packet can be sent
  */
 static bool NextTx = true;
@@ -433,38 +413,6 @@ static void OnTxNextPacketTimerEvent( void )
 }
 
 /*!
- * \brief Function executed on Led 1 Timeout event
- */
-static void OnLed1TimerEvent( void )
-{
-    TimerStop( &Led1Timer );
-    // Switch LED 1 OFF
-//    GpioWrite( &Led1, 1 );
-    //setLed(Board_GLED, 0);
-}
-
-/*!
- * \brief Function executed on Led 2 Timeout event
- */
-static void OnLed2TimerEvent( void )
-{
-    TimerStop( &Led2Timer );
-    // Switch LED 2 OFF
-//    GpioWrite( &Led2, 1 );
-    //setLed(Board_RLED, 0);
-}
-
-/*!
- * \brief Function executed on Led 4 Timeout event
- */
-static void OnLed4TimerEvent( void )
-{
-    TimerStop( &Led4Timer );
-    // Switch LED 4 OFF
-//    GpioWrite( &Led4, 1 );
-}
-
-/*!
  * \brief   MCPS-Confirm event function
  *
  * \param   [IN] mcpsConfirm - Pointer to the confirm structure,
@@ -500,11 +448,6 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
             default:
                 break;
         }
-
-        // Switch LED 1 ON
-//        GpioWrite( &Led1, 0 );
-        //setLed(Board_GLED, 1);
-        TimerStart( &Led1Timer );
     }
     NextTx = true;
 
@@ -568,15 +511,6 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     {
         switch( mcpsIndication->Port )
         {
-        case 1: // The application LED can be controlled on port 1 or 2
-        case 2:
-            if( mcpsIndication->BufferSize == 1 )
-            {
-                AppLedStateOn = mcpsIndication->Buffer[0] & 0x01;
-//                GpioWrite( &Led3, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 0 : 1 );
-                //setLed(Board_RLED, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0);
-            }
-            break;
         case 224:
             if( ComplianceTest.Running == false )
             {
@@ -695,11 +629,6 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
             break;
         }
     }
-
-    // Switch LED 2 ON for each received downlink
-//    GpioWrite( &Led2, 0 );
-    //setLed(Board_RLED, 1);
-    TimerStart( &Led2Timer );
 
     Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
@@ -822,15 +751,6 @@ void maintask(UArg arg0, UArg arg1)
                 LoRaMacInitialization( &LoRaMacPrimitives, &LoRaMacCallbacks );
 
                 TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
-
-                TimerInit( &Led1Timer, OnLed1TimerEvent );
-                TimerSetValue( &Led1Timer, 25 );
-
-                TimerInit( &Led2Timer, OnLed2TimerEvent );
-                TimerSetValue( &Led2Timer, 25 );
-
-                TimerInit( &Led4Timer, OnLed4TimerEvent );
-                TimerSetValue( &Led4Timer, 25 );
 
                 TimerInit(&buttonTimer, OnButtonTimerEvent);
                 TimerSetValue(&buttonTimer, 1000);
