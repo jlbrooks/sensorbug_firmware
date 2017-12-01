@@ -18,6 +18,9 @@
 #define ADV_CHANNEL_START 37
 #define ADV_CHANNEL_END 39
 
+// This displays the address 11:22:33:44:55:66
+#define BLE_ADV_ADDRESS {0x5566, 0x3344, 0x1122};
+
 // Overrides for CMD_RADIO_SETUP
 static uint32_t pOverrides[] =
 {
@@ -66,7 +69,7 @@ static uint32_t pOverrides[] =
     (uint32_t)0xFFFFFFFF,
 };
 
-static uint16_t advAddress[6] = {0x0011,0x2233,0x4455,0x33,0x44,0x55};
+static uint16_t advAddress[3] = BLE_ADV_ADDRESS;
 
 void send_advertisement(uint8_t *adv_payload, int adv_payload_len) {
     RF_Object ble_rfObj;

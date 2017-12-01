@@ -902,17 +902,6 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
-static uint8_t dummy_payload[10] = { 0x09, 0x16, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
-
-int dummy(UArg arg1, UArg arg2) {
-    BoardInitMcu( );
-    BoardInitPeriph( );
-    while (1) {
-        send_advertisement(dummy_payload, 10);
-        Task_sleep(TIME_MS * 50);
-    }
-}
-
 /*
  *  ======== main ========
  */
