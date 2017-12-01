@@ -288,7 +288,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
 
     while (1) {
         if (inactivity_counter >= INACTIVITY_COUNTER_THRESHOLD) {
-            uartprintf("Going to sleep because of inactivity..\r\n");
+            //uartprintf("Going to sleep because of inactivity..\r\n");
             pir_disable_interrupt();
             // Set grideye mode
             grideye_set_mode(GE_MODE_SLEEP);
@@ -306,7 +306,7 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             //grideye_set_power(false);
             grideye_set_mode(GE_MODE_NORMAL);
             DELAY_MS(800);
-            uartprintf("Woke up!\r\n");
+            //uartprintf("Woke up!\r\n");
         } else {
             grideye_get_frame(frame);
             pc_new_frame(frame);
@@ -320,7 +320,6 @@ static void pc_taskFxn(UArg a0, UArg a1) {
             } else {
                 inactivity_counter += 1;
             }
-            //toggleLed(Board_RLED);
             //uartprintf("PIR: %d\r\n", pir_get_value());
             //DELAY_MS(50);
         }
@@ -331,7 +330,7 @@ static void pc_update_counts(int count_in, int count_out) {
     Semaphore_pend(Semaphore_handle(&count_sem), BIOS_WAIT_FOREVER);
     counter.in_count = counter.in_count + count_in;
     counter.out_count = counter.out_count + count_out;
-    uartprintf("In: %d out: %d\r\n\r\n", counter.in_count, counter.out_count);
+    //uartprintf("In: %d out: %d\r\n\r\n", counter.in_count, counter.out_count);
     Semaphore_post(Semaphore_handle(&count_sem));
 }
 
