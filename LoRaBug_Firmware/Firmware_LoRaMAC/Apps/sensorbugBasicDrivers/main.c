@@ -110,7 +110,12 @@ static TimerEvent_t broadcastTimer;
 #define LORAWAN_DEV_EUI_SIZE 8
 #define LORAWAN_APP_KEY_SIZE 16
 
+#if(USE_BOARD_UNIQUE_ID_DEV_EUI == 1)
 static uint8_t DevEui[LORAWAN_DEV_EUI_SIZE];
+#else
+static uint8_t DevEui[] = LORAWAN_DEVICE_EUI;
+#endif
+
 static uint8_t AppEui[] = LORAWAN_APPLICATION_EUI;
 static uint8_t AppKey[] = LORAWAN_APPLICATION_KEY;
 
@@ -716,8 +721,10 @@ static void OnButtonTimerEvent( void )
 }
 
 static void loadDeviceInfo() {
+#if(USE_BOARD_UNIQUE_ID_DEV_EUI == 1)
     // Dev EUI is device BLE address
     BoardGetUniqueId(DevEui);
+#endif
 }
 
 void maintask(UArg arg0, UArg arg1)
