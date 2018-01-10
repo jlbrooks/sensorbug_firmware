@@ -47,6 +47,7 @@
 
 
 
+
 /*******************************************************************************
  * TYPEDEFS
  */
@@ -68,6 +69,7 @@ void getBmxData(uint32_t *data)
 {
 
     I2C_Handle handle;
+    I2C_Handle handle1;
     I2C_Params params;
     I2C_Transaction normalSettings, normalCmd;
     I2C_Transaction suspendCmd;
@@ -104,9 +106,10 @@ void getBmxData(uint32_t *data)
     gyrNorm[1] = 0x28;
 
 
-    uint8_t cmdSuspendAll[2];
-    cmdSuspendAll[0] = 0x7E;
-    cmdSuspendAll[1] = 0xB6; //soft reset
+    uint8_t cmdSoftReset[2];
+    cmdSoftReset[0] = 0x7E;
+    cmdSoftReset[1] = 0xB6;
+
 
     uint8_t dataReadyAddr;
     dataReadyAddr = 0x1B;
@@ -173,7 +176,6 @@ void getBmxData(uint32_t *data)
     if(!handle)
     {
         setLed(Board_RLED, true);
-        uartputs("Unable to open I2C\r\n");
     }
 
     //Configure settings for normal mode
@@ -189,23 +191,12 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Acc normal settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Acc normal settings successful \r\n");
-    }
-
     normalSettings.writeBuf = gyrNorm;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Gyr normal settings unsuccessful\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Gyr normal settings successful \r\n");
     }
 
     normalSettings.writeBuf = magIfNormal;
@@ -213,11 +204,6 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag normal settings unsuccessful\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag normal settings successful \r\n");
     }
 
 
@@ -228,11 +214,6 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag manual settings unsuccessful\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag manual settings successful \r\n");
     }
 
     normalSettings.writeBuf = magIf3Sleep;
@@ -240,11 +221,6 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 3 sleep settings unsuccessful\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 3 sleep settings successful \r\n");
     }
 
     normalSettings.writeBuf = magIf2Sleep;
@@ -252,11 +228,6 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 2 sleep settings unsuccessful\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 2 sleep settings successful \r\n");
     }
 
 
@@ -264,98 +235,47 @@ void getBmxData(uint32_t *data)
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
-        setLed(Board_RLED, true);
-        uartputs("Mag 3 normal settings unsuccessful\r\n");
+        setLed(Board_RLED, true);;
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 3 normal settings successful \r\n");
-    }
-
     normalSettings.writeBuf = magIf2Normal;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 2 normal settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 2 normal settings successful \r\n");
-    }
-
     normalSettings.writeBuf = magIf3Data;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 3 data settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 3 data settings successful \r\n");
-    }
-
     normalSettings.writeBuf = magIf2Data;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 2 data settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 2 data settings successful \r\n");
-    }
-
 
     normalSettings.writeBuf = magIf1Data;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag 1 data settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag 1 data settings successful \r\n");
-    }
-
 
     normalSettings.writeBuf = magConf;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag conf settings unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag conf settings successful \r\n");
-    }
-
 
     normalSettings.writeBuf = magEn;
 
     status = I2C_transfer(handle, &normalSettings);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag enable unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag enable successful \r\n");
-    }
-
-
-//
-//        uint8_t magNormalCmd[2];
-//
-//        magNormalCmd[0] = 0x7E;
-//        magNormalCmd[1] = 0x19;
-
-
-
 
 
     //Put sensors in normal mode
@@ -369,25 +289,13 @@ void getBmxData(uint32_t *data)
 
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Acc normal cmd to CMD reg failed\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Acc normal cmd to CMD reg successful \r\n");
-    }
-
-
     normalCmd.writeBuf = cmdGyrNorm;
 
     status = I2C_transfer(handle, &normalCmd);
 
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Gyr normal cmd to CMD reg failed\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Gyr normal cmd to CMD reg successful \r\n");
     }
 
     normalCmd.writeBuf = cmdMagNorm;
@@ -395,13 +303,7 @@ void getBmxData(uint32_t *data)
     status = I2C_transfer(handle, &normalCmd);
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Mag normal cmd to CMD reg unsuccessful\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Mag normal cmd to CMD reg successful \r\n");
-    }
-
 
     //A large delay to accommodate startup time. (Can be shortened if you thoroughly read datasheet)
 
@@ -420,30 +322,7 @@ void getBmxData(uint32_t *data)
 
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("pmu_status read failed\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("pmu_status read successful \r\n");
-    }
-
-    uint8_t accNormMask = 0x30;
-    uint8_t gyrNormMask = 0x0C;
-    uint8_t magNormMask = 0x03;
-    if((pmu_status & accNormMask) == 0x10)
-        uartputs("Accelerometer is now in normal mode \r\n");
-    else
-        uartputs("Failed to put accelerometer in normal mode \r\n");
-
-    if((pmu_status & gyrNormMask) == 0x04)
-        uartputs("Gyroscope is now in normal mode \r\n");
-    else
-        uartputs("Failed to put gyroscope in normal mode \r\n");
-
-    if((pmu_status & magNormMask) == 0x01)
-        uartputs("Magnetometer is now in normal mode \r\n");
-    else
-        uartputs("Failed to put magnetometer in normal mode \r\n");
 
 
 
@@ -478,7 +357,7 @@ void getBmxData(uint32_t *data)
     dataRead.slaveAddress = 0x68;
     dataRead.writeBuf = &data_reg_addr;
     dataRead.writeCount = 1;
-    dataRead.readBuf = &data;
+    dataRead.readBuf = data;
     dataRead.readCount = 20;
 
     uint16_t accelZ;
@@ -492,35 +371,34 @@ void getBmxData(uint32_t *data)
 
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("data read failed\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("data read successful\r\n");
     }
 
+
+    I2C_close(handle);
+
+    handle1 = I2C_open(Board_I2C, &params);
+
+    if(!handle1)
+    {
+        setLed(Board_RLED, true);
+    }
     //Code to process and print out accel data here
 
     //Put all sensors in suspend mode
 
-   suspendCmd.slaveAddress = 0x68;
-   suspendCmd.writeBuf = cmdSuspendAll;
-   suspendCmd.writeCount = 2;
-   suspendCmd.readBuf = NULL;
-   suspendCmd.readCount = 0;
+
+   checkDataReady.slaveAddress = 0x68;
+   checkDataReady.writeBuf = cmdSoftReset;
+   checkDataReady.writeCount = 2;
+   checkDataReady.readBuf = NULL;
+   checkDataReady.readCount = 0;
 
    uartputs("516\r\n");
-   status = I2C_transfer(handle, &suspendCmd);
+   status = I2C_transfer(handle1, &checkDataReady);
    uartputs("518\r\n");
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("Suspend CMD to CMD register failed\r\n");
     }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("Suspend cmd to CMD register was successful\r\n");
-    }
-
 
 
     DELAY_MS(500);
@@ -534,28 +412,14 @@ void getBmxData(uint32_t *data)
     pmuSuspendCheck.readCount = 1;
 
 
-    status = I2C_transfer(handle, &pmuSuspendCheck);
+    status = I2C_transfer(handle1, &pmuSuspendCheck);
 
     if(!status) {
         setLed(Board_RLED, true);
-        uartputs("pmu_status read failed\r\n");
-    }
-    else {
-        setLed(Board_GLED, true);
-        uartputs("pmu_status read successful \r\n");
     }
 
-    if((pmu_status & accNormMask) == 0x00)
-        uartputs("Accelerometer is now in suspend mode \r\n");
-    else
-        uartputs("Failed to put accelerometer in suspend mode \r\n");
+    I2C_close(handle1);
 
-    if((pmu_status & gyrNormMask) == 0x00)
-        uartputs("Gyroscope is now in suspend mode \r\n");
-    else
-        uartprintf("Failed to put gyroscope in suspend mode %x \r\n", pmu_status);
-
-    I2C_close(handle);
 }
 
 

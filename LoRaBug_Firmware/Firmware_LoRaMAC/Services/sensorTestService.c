@@ -31,7 +31,7 @@
  */
 
 /*
- *  ======== lightService.c ========
+ *  ======== sensorTestService.c ========
  */
 /* XDCtools Header files */
 #include <xdc/std.h>
@@ -51,16 +51,23 @@
 /* Example/Board Header files */
 #include "Config/Board_LoRaBUG.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "io.h"
+#include "Services/bmeService.h"
+#include "Services/bmxService.h"
+#include "Services/grideyeService.h"
+
+#include <ti/drivers/I2C.h>
+#include <ti/drivers/i2c/I2CCC26XX.h>
 
 #define DELAY_MS(i)    Task_sleep(((i) * 1000) / Clock_tickPeriod)
 
 /*******************************************************************************
  * CONSTANTS
  */
-#define LIGHT_TASK_PRIORITY                     5
+#define SENSORTEST_TASK_PRIORITY                     5
 
-#define LIGHT_TASK_STACK_SIZE                   1200
+#define SENSORTEST_TASK_STACK_SIZE                   2000
 
 
 #define LED_PIN_RX      Board_GLED
@@ -83,70 +90,35 @@
  */
 
 // Task configuration
-Task_Struct lightTask;
-Char lightTaskStack[LIGHT_TASK_STACK_SIZE];
-
-static PIN_Handle ledPinHandle;
-static PIN_State ledPinState;
-
-static PIN_Config ledPinTable[] = {
-    Board_GLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    Board_RLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    Board_HDR_HDIO1 | PIN_GPIO_OUTPUT_EN | PIN_GPIO_HIGH | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    PIN_TERMINATE
-};
-
-/* ADC conversion result variables */
-uint16_t adcValue0;
-uint16_t adcValue1[ADC_SAMPLE_COUNT];
-
+Task_Struct sensorTestTask;
+Char sensorTestTaskStack[SENSORTEST_TASK_STACK_SIZE];
 
 /*
  *  ======== taskFxn1 ========
  *  Open a ADC handle and get a array of sampling results after
  *  calling several conversions.
  */
-Void light_taskFxn(UArg arg0, UArg arg1)
+Void sensorTest_taskFxn(UArg arg0, UArg arg1)
 {
-    uint16_t     i;
-    ADC_Handle   adc;
-    ADC_Params   params;
-    int_fast16_t res;
+    setLed(Board_GLED, false);
+    setLed(Board_RLED, false);
+    //Try and get data from BMX. If anything fails, will assert red LED
+    uint32_t data;
+    uartputs("Going to test BMX chip now\r\n");
+    getBmxData(&data);
 
-    //PIN_setOutputValue(ledPinHandle, Board_HDR_ADIO0, true);
 
-    ADC_Params_init(&params);
-    adc = ADC_open(0, &params);
+    //Try and get data from BME. If anything fails, assert red LED
+    uartputs("Going to test BME chip now\r\n");
+    //Get BME readings
+    testBMEChip();
 
-    if (adc == NULL) {
-        uartputs("qwertyuioed\r\n");
-        DELAY_MS(2000);
-        setLed(Board_RLED, true);
-        System_abort("Error initializing ADC channel 1\n");
-    }
-    else {
-        uartputs("ADC channel 1 initialized\r\n");
-    }
+    //Test the GridEye chip. If anything fails, assert red LED
+    grideye_init();
 
-    while(1) {
-        res = ADC_convert(adc, &adcValue1[0]);
+    //Assert the green LED to signal completion of tests
+//    setLed(Board_GLED, true);
 
-        if (res == ADC_STATUS_SUCCESS) {
-            uartprintf("ADC channel 1 convert result (%d): 0x%x\r\n", adcValue1[0],
-                adcValue1[0]);
-            setLed(Board_GLED, true);
-            DELAY_MS(2000);
-
-        }
-        else {
-            uartprintf("ADC channel 1 convert failed (%d)\r\n", i);
-            setLed(Board_RLED, true);
-        }
-        setLed(Board_GLED, false);
-        DELAY_MS(2000);
-    }
-
-    ADC_close(adc);
 }
 
 /*********************************************************************
@@ -154,7 +126,7 @@ Void light_taskFxn(UArg arg0, UArg arg1)
  */
 
 /*********************************************************************
- * @fn      lightService_createTask
+ * @fn      sensorTestService_createTask
  *
  * @brief   Task creation function for the light sensor application.
  *
@@ -163,17 +135,17 @@ Void light_taskFxn(UArg arg0, UArg arg1)
  * @return  None.
  */
 
-void lightService_createTask(void)
+void sensorTestService_createTask(void)
 {
   Task_Params taskParams;
 
   // Configure task
   Task_Params_init(&taskParams);
-  taskParams.stack = lightTaskStack;
-  taskParams.stackSize = LIGHT_TASK_STACK_SIZE;
+  taskParams.stack = sensorTestTaskStack;
+  taskParams.stackSize = SENSORTEST_TASK_STACK_SIZE;
   //taskParams.priority = LIGHT_TASK_PRIORITY;
 
-  Task_construct(&lightTask, light_taskFxn, &taskParams, NULL);
+  Task_construct(&sensorTestTask, sensorTest_taskFxn, &taskParams, NULL);
 }
 
 

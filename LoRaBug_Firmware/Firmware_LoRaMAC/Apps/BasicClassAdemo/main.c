@@ -690,7 +690,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_JOIN:
             {
-                printf("# DeviceState: DEVICE_STATE_JOIN\n");
+                uartprintf("# DeviceState: DEVICE_STATE_JOIN\n");
 #if( OVER_THE_AIR_ACTIVATION != 0 )
                 MlmeReq_t mlmeReq;
 
@@ -746,7 +746,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SEND:
             {
-                printf("# DeviceState: DEVICE_STATE_SEND\n");
+                uartprintf("# DeviceState: DEVICE_STATE_SEND\n");
                 if( NextTx == true )
                 {
                     PrepareTxFrame( AppPort );

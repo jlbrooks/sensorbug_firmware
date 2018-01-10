@@ -42,7 +42,9 @@ extern "C"
  */
 extern void bmeService_createTask(void);
 
+extern void getBMEData(float *temp, float *pres, float *hum);
 
+extern void testBMEChip();
 /*********************************************************************
 *********************************************************************/
 

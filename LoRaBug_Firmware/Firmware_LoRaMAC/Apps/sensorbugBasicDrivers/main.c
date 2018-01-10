@@ -1,18 +1,20 @@
 
 /* XDCtools Header files */
 
-#include <Apps/sensorbugBasicDrivers/bme680.h>
+
 #include <Apps/sensorbugBasicDrivers/Commissioning.h>
 #include <Apps/sensorbugBasicDrivers/pb_decode.h>
 #include <Apps/sensorbugBasicDrivers/pb_encode.h>
 #include <Apps/sensorbugBasicDrivers/sensorbug.pb.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
+#include <stdlib.h>
 
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Event.h>
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/I2C.h>
@@ -26,7 +28,6 @@
 #include "Board_LoRaBUG.h"
 
 #include <string.h> // strlen in uartputs and LoRaWan code
-#include <math.h>
 
 #include "board.h"
 #include "io.h"
@@ -36,6 +37,7 @@
 #include "Services/grideyeService.h"
 #include "Services/bmeService.h"
 #include "Services/bmxService.h"
+#include "Services/pcService.h"
 #include "Services/lightService.h"
 
 #include <ti/drivers/I2C.h>
@@ -46,6 +48,11 @@
 Task_Struct task0Struct;
 Char task0Stack[TASKSTACKSIZE];
 
+/* Runtime Events */
+#define EVENT_STATECHANGE Event_Id_00
+static Event_Struct runtimeEventsStruct;
+static Event_Handle runtimeEvents;
+
 
 /*------------------------------------------------------------------------*/
 /*                      Start of LoRaWan Demo Code                        */
@@ -54,7 +61,7 @@ Char task0Stack[TASKSTACKSIZE];
 /*!
  * Defines the application data transmission duty cycle. 15s, value in [ms].
  */
-#define APP_TX_DUTYCYCLE                            3000
+#define APP_TX_DUTYCYCLE                            30000
 
 /*!
  * Defines a random delay for application data transmission duty cycle. 2s,
@@ -90,9 +97,15 @@ Char task0Stack[TASKSTACKSIZE];
  */
 #define LORAWAN_APP_DATA_SIZE                       11
 
+#define MODE_OCCULOW                                0
+#define MODE_SENSORBUG                              1
+#define MODE_DEEP_SLEEP                             2
+
 static uint8_t DevEui[] = LORAWAN_DEVICE_EUI;
 static uint8_t AppEui[] = LORAWAN_APPLICATION_EUI;
 static uint8_t AppKey[] = LORAWAN_APPLICATION_KEY;
+
+static uint8_t mode = MODE_SENSORBUG;
 
 #if( OVER_THE_AIR_ACTIVATION == 0 )
 
@@ -195,379 +208,174 @@ struct ComplianceTest_s
     uint8_t NbGateways;
 }ComplianceTest;
 
-
-static int8_t user_i2c_read(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
-{
-    //uartputs("i2c read called \r\n");
-    int8_t rslt = 0; //0 for success, non-zero for failure
-    I2C_Handle handle;
-    I2C_Params params;
-    I2C_Transaction i2cTrans1;
-
-    I2C_Params_init(&params);     // sets custom to NULL
-    params.transferMode = I2C_MODE_BLOCKING;
-    I2CCC26XX_I2CPinCfg pinCfg;
-    pinCfg.pinSDA = Board_I2C0_SDA0;
-    pinCfg.pinSCL = Board_I2C0_SCL0;
-    params.custom = &pinCfg;
-
-
-    handle = I2C_open(Board_I2C, &params);
-    if(!handle) {
-        rslt = -1;
-        uartputs("Read opening failed \r\n");
-    }
-    else {
-        i2cTrans1.slaveAddress = dev_id;
-        i2cTrans1.writeBuf = &reg_addr;
-        i2cTrans1.writeCount = 1;
-        i2cTrans1.readBuf = reg_data;
-        i2cTrans1.readCount = len;
-
-
-        //uartprintf("The provided slave address is : %x\r\n", dev_id);
-        //uartprintf("The register address being written is : %d \r\n", reg_addr);
-
-        bool status = false;
-        status = I2C_transfer(handle, &i2cTrans1);
-        setLed(Board_RLED, false);
-        setLed(Board_GLED, false);
-        if(!status) {
-            setLed(Board_RLED, true);
-            rslt = -1;
-            uartprintf("The read failed\r\n");
-        }
-        else {
-            setLed(Board_GLED, true);
-        }
-
-        I2C_close(handle);
-    }
-    //uartprintf("Done reading with result : %d \r\n", rslt);
-    return rslt;
-}
-
-
-
-static int8_t user_i2c_write(uint8_t dev_id, uint8_t reg_addr, uint8_t *reg_data, uint16_t len)
-{
-    //uartputs("i2c write called \r\n");
-    int8_t rslt = 0; //0 for success, non-zero for failure
-    I2C_Handle handle;
-    I2C_Params params;
-    I2C_Transaction i2cTrans1;
-
-    I2C_Params_init(&params);     // sets custom to NULL
-    params.transferMode = I2C_MODE_BLOCKING;
-    I2CCC26XX_I2CPinCfg pinCfg;
-    pinCfg.pinSDA = Board_I2C0_SDA0;
-    pinCfg.pinSCL = Board_I2C0_SCL0;
-    params.custom = &pinCfg;
-
-
-    //uartprintf("The provided slave address is : %x\r\n", dev_id);
-    //uartprintf("The register address being written is : %d \r\n", reg_addr);
-
-    handle = I2C_open(Board_I2C, &params);
-    if(!handle) {
-        rslt = -1;
-        uartputs("Write opening failed \r\n");
-    }
-    else {
-        uint8_t *txBuf = malloc((len + 1) * sizeof(uint8_t));
-        i2cTrans1.slaveAddress = dev_id;
-        i2cTrans1.writeBuf = txBuf;
-        i2cTrans1.writeCount = len;
-        i2cTrans1.readBuf = NULL;
-        i2cTrans1.readCount = 0;
-        txBuf[0] = reg_addr;
-        for(int j = 0; j < len; j++)
-        {
-            txBuf[1 + j] = reg_data[j];
-        }
-
-        bool status = false;
-        status = I2C_transfer(handle, &i2cTrans1);
-        setLed(Board_RLED, false);
-        setLed(Board_GLED, false);
-        if(!status) {
-            rslt = -1;
-            uartputs("The transfer failed \r\n");
-            setLed(Board_RLED, true);
-        }
-        else {
-            //uartputs("The transfer was successful \r\n");
-            setLed(Board_GLED, true);
-        }
-        free(txBuf);
-        I2C_close(handle);
-    }
-    //uartprintf("Done writing with result : %d \r\n", rslt);
-    return rslt;
-}
-
-void user_delay_ms(uint32_t period)
-{
-    DELAY_MS(period);
-}
-
 /*!
  * \brief   Prepares the payload of the frame
  */
 static void PrepareTxFrame( uint8_t port )
 {
-    static uint32_t counter = 0;
-    uint32_t batteryVoltage = 0;
-    uint8_t batteryLevel = 0;
-
     size_t message_length;
+    static SensorMessage message = SensorMessage_init_zero;
+    pb_ostream_t stream;
     bool status;
+    static pc_counter_t counter;
 
-    printf("# PrepareTxFrame\n");
+    //uartprintf ("# PrepareTxFrame\r\n");
 
     switch( port )
     {
-    case 2:
-
-        batteryVoltage = BoardGetBatteryVoltage();
-        batteryLevel = BoardGetBatteryLevel();
-
-        memset(AppData, '\0', sizeof(AppData));
-
-        // Copy Counter
-        memcpy(AppData, &counter, sizeof(counter));
-        AppDataSize = sizeof(counter);
-        counter++;
-
-        // Copy Battery Voltage
-        memcpy(AppData + AppDataSize, &batteryVoltage, sizeof(batteryVoltage));
-        AppDataSize += sizeof(batteryVoltage);
-
-        // Copy Battery Level
-        memcpy(AppData + AppDataSize, &batteryLevel, sizeof(batteryLevel));
-        AppDataSize += sizeof(batteryLevel);
-
-        //Insert your driver code here
-
-        //Getting MIC reading
-
-        setPin(Board_HDR_HDIO1, true);
-        //DELAY_MS(100);
-        ADC_Handle   adc, adc1;
-        ADC_Params   params, params1;
-        int_fast16_t res, res1;
-
-        ADC_Params_init(&params);
-        adc = ADC_open(2, &params);
-
-        if (adc == NULL) {
-            uartputs("Error initializing ADC channel \r\n");
-            DELAY_MS(100);
-            System_abort("Error initializing ADC channel \n");
-        }
-        else {
-            uartputs("ADC channel initialized\r\n");
-
-        }
-
-
-        uint16_t adcValue0, adcValue1;
-        uint16_t minV, maxV;
-
-        minV = 0xFFFF;
-        maxV = 0;
-
-        uint32_t currTicks, startTicks;
-
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-
-        while((currTicks - startTicks) < 5000) {
-            currTicks = Clock_getTicks();
-            res = ADC_convert(adc, &adcValue0);
-            if (res == ADC_STATUS_SUCCESS) {
-                if(maxV < adcValue0)
-                    maxV = adcValue0;
-                if(minV > adcValue0)
-                    minV = adcValue0;
-            }
-            else {
-                uartprintf("ADC channel convert failed \r\n");
-            }
-
-        }
-        ADC_close(adc);
-
-        ADC_Params_init(&params1);
-        adc = ADC_open(0, &params1);
-
-        if (adc == NULL) {
-            uartputs("Error initializing ADC channel \r\n");
-            DELAY_MS(100);
-            System_abort("Error initializing ADC channel \n");
-        }
-        else {
-            uartputs("ADC channel initialized\r\n");
-
-        }
-
-
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-        uint32_t lightAvg = 0, count = 0;
-
-
-        while((currTicks - startTicks) < 5000) {
-            currTicks = Clock_getTicks();
-            res = ADC_convert(adc, &adcValue1);
-            if (res == ADC_STATUS_SUCCESS) {
-                lightAvg += adcValue1;
-                count++;
-            }
-            else {
-                uartprintf("ADC channel convert failed \r\n");
-            }
-
-        }
-        ADC_close(adc);
-        lightAvg = lightAvg/count;
-
-        uint32_t pir_status;
-
-        //Get PIR status
-        startTicks = Clock_getTicks();
-        currTicks = startTicks;
-        while((currTicks - startTicks) < 5000){
-            currTicks = Clock_getTicks();
-            pir_status = getPin(Board_HDR_ADIO6);
-            if(pir_status == 1)
-                break;
-        }
-
-        //Get BME readings
-        struct bme680_dev gas_sensor;
-
-        //Configuring I2C communication interface
-        gas_sensor.dev_id = BME680_I2C_ADDR_SECONDARY;
-        gas_sensor.intf = BME680_I2C_INTF;
-        gas_sensor.read = user_i2c_read;
-        gas_sensor.write = user_i2c_write;
-        gas_sensor.delay_ms = user_delay_ms;
-
-
-        //Initializing object to default values
-        int8_t rslt = BME680_OK;
-        rslt = bme680_init(&gas_sensor);
-        if(rslt != BME680_OK)
-            uartprintf("Initialization failed with error code : %d \r\n", rslt);
-
-        uint8_t set_required_settings;
-
-        /* Set the temperature, pressure and humidity settings */
-        gas_sensor.tph_sett.os_hum = BME680_OS_2X;
-        gas_sensor.tph_sett.os_pres = BME680_OS_4X;
-        gas_sensor.tph_sett.os_temp = BME680_OS_8X;
-        gas_sensor.tph_sett.filter = BME680_FILTER_SIZE_3;
-
-        /* Set the remaining gas sensor settings and link the heating profile */
-        gas_sensor.gas_sett.run_gas = BME680_ENABLE_GAS_MEAS;
-        /* Create a ramp heat waveform in 3 steps */
-        gas_sensor.gas_sett.heatr_temp = 320; /* degree Celsius */
-        gas_sensor.gas_sett.heatr_dur = 150; /* milliseconds */
-
-        /* Select the power mode */
-        /* Must be set before writing the sensor configuration */
-        gas_sensor.power_mode = BME680_FORCED_MODE;
-
-        /* Set the required sensor settings needed */
-        set_required_settings = BME680_OST_SEL | BME680_OSP_SEL | BME680_OSH_SEL | BME680_FILTER_SEL
-            | BME680_GAS_SENSOR_SEL;
-
-        /* Set the desired sensor configuration */
-        rslt = bme680_set_sensor_settings(set_required_settings,&gas_sensor);
-        if(rslt != 0) {
-            setLed(Board_RLED, true);
-            uartprintf("sensor settings failed with error code : %d\r\n", rslt);
-        }
-
-
-        /* Set the power mode */
-        rslt = bme680_set_sensor_mode(&gas_sensor);
-        if(rslt != 0) {
-            setLed(Board_RLED, true);
-            uartprintf("power mode setting failed with error code : %d \r\n", rslt);
-        }
-
-
-        /* Get the total measurement duration so as to sleep or wait till the
-         * measurement is complete */
-        uint16_t meas_period;
-        bme680_get_profile_dur(&meas_period, &gas_sensor);
-        DELAY_MS(meas_period); /* Delay till the measurement is ready */
-
-        struct bme680_field_data data;
-//        while(1) {
-//            rslt = bme680_get_sensor_data(&data, &gas_sensor);
-//            if(rslt != 0) {
-//                setLed(Board_RLED, true);
-//                uartprintf("Getting sensor data failed with error code : %d \r\n", rslt);
-//            }
-//
-//            uartprintf("T: %.2f degC, P: %.2f hPa, H %.2f %%rH ", data.temperature / 100.0f,
-//                data.pressure / 100.0f, data.humidity / 1000.0f );
-//            /* Avoid using measurements from an unstable heating setup */
-//            if(data.status & BME680_HEAT_STAB_MSK)
-//                uartprintf(", G: %d ohms", data.gas_resistance);
-//
-//            uartprintf("\r\n");
-//            if(!rslt)
-//                break;
-//        }
-
+    case LORAWAN_APP_PORT:
         //Prepare sensor readings to send over LoRa
-        SensorMessage message = SensorMessage_init_zero;
+        stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
+
+        message.batteryVoltage = BoardGetBatteryVoltage();
+        message.batteryLevel = BoardGetBatteryLevel();
+
+        if(mode == MODE_OCCULOW){
+            //pc_get_counts(&counter, true);
+            message.count_in = 0;
+            message.count_out = 0;
+        } else if(mode == MODE_SENSORBUG) {
+            //uartprintf ("Sending %d/%d\r\nVoltage: %d\r\nLevel: %d\r\n", message.count_in, message.count_out, message.batteryVoltage, message.batteryLevel);
+            setPin(Board_HDR_HDIO1, true);
+            //DELAY_MS(100);
+            ADC_Handle   adc, adc1;
+            ADC_Params   params, params1;
+            int_fast16_t res, res1;
+
+            ADC_Params_init(&params);
+            adc = ADC_open(2, &params);
+
+            if (adc == NULL) {
+                DELAY_MS(100);
+                System_abort("ADC err\n");
+            }
+
+
+            uint16_t adcValue0, adcValue1;
+            uint16_t minV, maxV;
+
+            minV = 0xFFFF;
+            maxV = 0;
+
+            uint32_t currTicks, startTicks;
+
+            startTicks = Clock_getTicks();
+            currTicks = startTicks;
+
+            while((currTicks - startTicks) < 5000) {
+                currTicks = Clock_getTicks();
+                res = ADC_convert(adc, &adcValue0);
+                if (res == ADC_STATUS_SUCCESS) {
+                    if(maxV < adcValue0)
+                        maxV = adcValue0;
+                    if(minV > adcValue0)
+                        minV = adcValue0;
+                }
+                else {
+                    uartprintf("ADConverr\r\n");
+                }
+
+            }
+            ADC_close(adc);
+
+            ADC_Params_init(&params1);
+            adc = ADC_open(0, &params1);
+
+            if (adc == NULL) {
+                DELAY_MS(100);
+                System_abort("ADC err2\n");
+            }
+
+
+            startTicks = Clock_getTicks();
+            currTicks = startTicks;
+            uint32_t lightAvg = 0, count = 0;
+
+
+            while((currTicks - startTicks) < 5000) {
+                currTicks = Clock_getTicks();
+                res = ADC_convert(adc, &adcValue1);
+                if (res == ADC_STATUS_SUCCESS) {
+                    lightAvg += adcValue1;
+                    count++;
+                }
+                else {
+                    uartprintf("ADConverr2\r\n");
+                }
+
+            }
+            ADC_close(adc);
+            lightAvg = lightAvg/count;
+
+            uint32_t pir_status;
+
+            //Get PIR status
+            startTicks = Clock_getTicks();
+            currTicks = startTicks;
+            while((currTicks - startTicks) < 5000){
+                currTicks = Clock_getTicks();
+                pir_status = getPin(Board_HDR_ADIO6);
+                if(pir_status == 1)
+                    break;
+            }
+
+            message.has_mic = true;
+            message.mic = maxV - minV;
+
+            message.has_pir_status = true;
+            message.pir_status = pir_status;
+
+            message.has_light = true;
+            message.light = lightAvg;
+
+            message.has_humidity = true;
+            message.has_temperature = true;
+            message.has_pressure = true;
+
+            //Get BME readings
+            getBMEData(&message.temperature, &message.pressure, &message.humidity);
+
+            uint32_t bmxData[20];
+            getBmxData(bmxData);
+
+            message.has_accelz = true;
+            message.accelz = (bmxData[19] << 8) | bmxData[18];
+
+            message.has_accely = true;
+            message.accely = (bmxData[17] << 8) | bmxData[16];
+
+            message.has_accelx = true;
+            message.accelx = (bmxData[15] << 8) | bmxData[14];
+
+            message.has_gyrz = true;
+            message.gyrz = (bmxData[13] << 8) | bmxData[12];
+
+            message.has_gyry = true;
+            message.gyry = (bmxData[11] << 8) | bmxData[10];
+
+            message.has_gyrx = true;
+            message.gyrx = (bmxData[9] << 8) | bmxData[8];
+
+
+            message.has_magz = true;
+            message.magz = (bmxData[5] << 8) | bmxData[4];
+
+            message.has_magy = true;
+            message.magy = (bmxData[3] << 8) | bmxData[2];
+
+            message.has_magx = true;
+            message.magx = (bmxData[1] << 8) | bmxData[0];
+
+
+        } else if(mode == MODE_DEEP_SLEEP) {
+            //deep_sleep();
+        }
+        status = pb_encode(&stream, SensorMessage_fields, &message);
+        message_length = stream.bytes_written;
+
+        AppDataSize = message_length;
 
         pb_ostream_t stream = pb_ostream_from_buffer(AppData, sizeof(AppData));
-
-        message.has_mic = true;
-        message.mic = maxV - minV;
-
-        message.has_pir_status = true;
-        message.pir_status = pir_status;
-
-        message.has_light = true;
-        message.light = lightAvg;
-
-        uint32_t bmxData[20];
-        getBmxData(bmxData);
-
-        message.has_accelz = true;
-        message.accelz = (bmxData[19] << 8) | bmxData[18];
-
-        message.has_accely = true;
-        message.accely = (bmxData[17] << 8) | bmxData[16];
-
-        message.has_accelx = true;
-        message.accelx = (bmxData[15] << 8) | bmxData[14];
-
-        message.has_gyrz = true;
-        message.gyrz = (bmxData[13] << 8) | bmxData[12];
-
-        message.has_gyry = true;
-        message.gyry = (bmxData[11] << 8) | bmxData[10];
-
-        message.has_gyrx = true;
-        message.gyrx = (bmxData[9] << 8) | bmxData[8];
-
-
-        message.has_magz = true;
-        message.magz = (bmxData[5] << 8) | bmxData[4];
-
-        message.has_magy = true;
-        message.magy = (bmxData[3] << 8) | bmxData[2];
-
-        message.has_magx = true;
-        message.magx = (bmxData[1] << 8) | bmxData[0];
 
 
         status = pb_encode(&stream, SensorMessage_fields, &message);
@@ -576,9 +384,8 @@ static void PrepareTxFrame( uint8_t port )
         AppDataSize = message_length;
 
         if(!status) {
-            printf("Encoding failed: %s\n", PB_GET_ERROR(&stream));
+            //uartprintf ("Encoding failed: %s\r\n", PB_GET_ERROR(&stream));
         }
-
 
         break;
 
@@ -622,7 +429,7 @@ static bool SendFrame( void )
     McpsReq_t mcpsReq;
     LoRaMacTxInfo_t txInfo;
 
-    printf("# SendFrame\n");
+    //uartprintf ("# SendFrame\r\n");
 
     if( LoRaMacQueryTxPossible( AppDataSize, &txInfo ) != LORAMAC_STATUS_OK )
     {
@@ -665,7 +472,7 @@ static bool SendFrame( void )
  */
 static void OnTxNextPacketTimerEvent( void )
 {
-    printf("# OnTxNextPacketTimerEvent\n");
+    //uartprintf ("# OnTxNextPacketTimerEvent\r\n");
     MibRequestConfirm_t mibReq;
     LoRaMacStatus_t status;
 
@@ -673,6 +480,7 @@ static void OnTxNextPacketTimerEvent( void )
 
     mibReq.Type = MIB_NETWORK_JOINED;
     status = LoRaMacMibGetRequestConfirm( &mibReq );
+    //uartprintf ("Status: %d\r\n", (int)status);
 
     if( status == LORAMAC_STATUS_OK )
     {
@@ -686,6 +494,8 @@ static void OnTxNextPacketTimerEvent( void )
             DeviceState = DEVICE_STATE_JOIN;
         }
     }
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -696,7 +506,7 @@ static void OnLed1TimerEvent( void )
     TimerStop( &Led1Timer );
     // Switch LED 1 OFF
 //    GpioWrite( &Led1, 1 );
-    setLed(Board_GLED, 0);
+    //setLed(Board_GLED, 0);
 }
 
 /*!
@@ -707,7 +517,7 @@ static void OnLed2TimerEvent( void )
     TimerStop( &Led2Timer );
     // Switch LED 2 OFF
 //    GpioWrite( &Led2, 1 );
-    setLed(Board_RLED, 0);
+    //setLed(Board_RLED, 0);
 }
 
 /*!
@@ -728,8 +538,7 @@ static void OnLed4TimerEvent( void )
  */
 static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 {
-    printf("# McpsConfirm\n");
-    uartputs("# McpsConfirm\n");
+    //uartprintf ("# McpsConfirm\r\n");
     if( mcpsConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
     {
         switch( mcpsConfirm->McpsRequest )
@@ -738,7 +547,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
             {
                 // Check Datarate
                 // Check TxPower
-                uartputs("# Got McpsConfirm: MCPS_UNCONFIRMED\n");
+                //uartprintf("# Got McpsConfirm: MCPS_UNCONFIRMED\r\n");
                 break;
             }
             case MCPS_CONFIRMED:
@@ -747,7 +556,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
                 // Check TxPower
                 // Check AckReceived
                 // Check NbTrials
-                uartputs("# Got McpsConfirm: MCPS_CONFIRMED\n");
+                //uartprintf("# Got McpsConfirm: MCPS_CONFIRMED\r\n");
                 break;
             }
             case MCPS_PROPRIETARY:
@@ -760,10 +569,12 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
 
         // Switch LED 1 ON
 //        GpioWrite( &Led1, 0 );
-        setLed(Board_GLED, 1);
+        //setLed(Board_GLED, 1);
         TimerStart( &Led1Timer );
     }
     NextTx = true;
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -774,7 +585,7 @@ static void McpsConfirm( McpsConfirm_t *mcpsConfirm )
  */
 static void McpsIndication( McpsIndication_t *mcpsIndication )
 {
-    printf("# McpsIndication\n");
+    //uartprintf ("# McpsIndication\r\n");
     if( mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK )
     {
         return;
@@ -784,12 +595,12 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
     {
         case MCPS_UNCONFIRMED:
         {
-            uartputs("# Got McpsIndication: MCPS_UNCONFIRMED\n");
+            //uartprintf ("# Got McpsIndication: MCPS_UNCONFIRMED\n");
             break;
         }
         case MCPS_CONFIRMED:
         {
-            uartputs("# Got McpsIndication: MCPS_CONFIRMED\n");
+            //uartprintf ("# Got McpsIndication: MCPS_CONFIRMED\n");
             break;
         }
         case MCPS_PROPRIETARY:
@@ -829,7 +640,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
             {
                 AppLedStateOn = mcpsIndication->Buffer[0] & 0x01;
 //                GpioWrite( &Led3, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 0 : 1 );
-                setLed(Board_RLED, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0);
+                //setLed(Board_RLED, ( ( AppLedStateOn & 0x01 ) != 0 ) ? 1 : 0);
             }
             break;
         case 224:
@@ -953,8 +764,10 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 
     // Switch LED 2 ON for each received downlink
 //    GpioWrite( &Led2, 0 );
-    setLed(Board_RLED, 1);
+    //setLed(Board_RLED, 1);
     TimerStart( &Led2Timer );
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 /*!
@@ -965,27 +778,29 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
  */
 static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 {
-    printf("# MlmeConfirm\n");
     switch( mlmeConfirm->MlmeRequest )
     {
         case MLME_JOIN:
         {
-            printf("# MlmeConfirm: Join\n");
+            //uartprintf ("# MlmeConfirm: Join\r\n");
+            //uartprintf ("# Mlme status: %d\r\n", (int)mlmeConfirm->Status);
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Status is OK, node has joined the network
+                //uartprintf ("# Got OK status\r\n");
                 DeviceState = DEVICE_STATE_SEND;
             }
             else
             {
                 // Join was not successful. Try to join again
+                //uartprintf ("# Not successful\r\n");
                 DeviceState = DEVICE_STATE_JOIN;
             }
             break;
         }
         case MLME_LINK_CHECK:
         {
-            printf("# MlmeConfirm: Link Check\n");
+            //uartprintf ("# MlmeConfirm: Link Check\n");
             if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
             {
                 // Check DemodMargin
@@ -1003,6 +818,8 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
             break;
     }
     NextTx = true;
+
+    Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -1011,9 +828,13 @@ void maintask(UArg arg0, UArg arg1)
     LoRaMacCallback_t LoRaMacCallbacks;
     MibRequestConfirm_t mibReq;
 
+    Event_construct(&runtimeEventsStruct, NULL);
+    runtimeEvents = Event_handle(&runtimeEventsStruct);
+
     BoardInitMcu( );
     BoardInitPeriph( );
-    printf("# Board initialized\n");
+    DELAY_MS(5000);
+    //uartprintf ("# Board initialized\r\n");
 
     DeviceState = DEVICE_STATE_INIT;
 
@@ -1023,7 +844,7 @@ void maintask(UArg arg0, UArg arg1)
         {
             case DEVICE_STATE_INIT:
             {
-                printf("# DeviceState: DEVICE_STATE_INIT\n");
+                //uartprintf ("# DeviceState: DEVICE_STATE_INIT\r\n");
                 LoRaMacPrimitives.MacMcpsConfirm = McpsConfirm;
                 LoRaMacPrimitives.MacMcpsIndication = McpsIndication;
                 LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
@@ -1054,7 +875,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_JOIN:
             {
-                printf("# DeviceState: DEVICE_STATE_JOIN\n");
+                //uartprintf ("# DeviceState: DEVICE_STATE_JOIN\r\n");
 #if( OVER_THE_AIR_ACTIVATION != 0 )
                 MlmeReq_t mlmeReq;
 
@@ -1070,7 +891,8 @@ void maintask(UArg arg0, UArg arg1)
 
                 if( NextTx == true )
                 {
-                    LoRaMacMlmeRequest( &mlmeReq );
+                    LoRaMacStatus_t status = LoRaMacMlmeRequest( &mlmeReq );
+                    //uartprintf ("Result: %d\r\n", (int)status);
                 }
                 DeviceState = DEVICE_STATE_SLEEP;
 #else
@@ -1110,7 +932,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SEND:
             {
-                printf("# DeviceState: DEVICE_STATE_SEND\n");
+                //uartprintf ("# DeviceState: DEVICE_STATE_SEND\r\n");
                 if( NextTx == true )
                 {
                     PrepareTxFrame( AppPort );
@@ -1132,7 +954,7 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_CYCLE:
             {
-                printf("# DeviceState: DEVICE_STATE_CYCLE\n");
+                //uartprintf ("# DeviceState: DEVICE_STATE_CYCLE\r\n");
                 DeviceState = DEVICE_STATE_SLEEP;
 
                 // Schedule next packet transmission
@@ -1142,11 +964,12 @@ void maintask(UArg arg0, UArg arg1)
             }
             case DEVICE_STATE_SLEEP:
             {
-               // printf("# DeviceState: DEVICE_STATE_SLEEP\n");
+                //uartprintf ("# DeviceState: DEVICE_STATE_SLEEP\r\n");
                 // Wake up through events
-//                TimerLowPowerHandler( );
-                Task_sleep(TIME_MS * 10);
-//                Task_yield();
+                toggleLed(Board_GLED);
+                Task_sleep(TIME_MS*100);
+                toggleLed(Board_GLED);
+                Event_pend(runtimeEvents, Event_Id_NONE, EVENT_STATECHANGE, BIOS_WAIT_FOREVER);
                 break;
             }
             default:
@@ -1159,32 +982,38 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
+int dummy(UArg arg1, UArg arg2) {
+    BoardInitMcu( );
+    BoardInitPeriph( );
+    while (1) {
+        Task_sleep(TIME_MS * 50000);
+    }
+}
+
 /*
  *  ======== main ========
  */
 int main(void)
-
-
 {
-    Task_Params taskParams;
+//    Task_Params taskParams;
 
     /* Call board init functions */
     Board_initGeneral();
     Board_initI2C();
     Board_initSPI();
     Board_initUART();
-    // Board_initWatchdog();
+    //Board_initWatchdog();
     ADC_init();
 
     /* Construct heartBeat Task  thread */
-    Task_Params_init(&taskParams);
-    taskParams.arg0 = 1000000 / Clock_tickPeriod;
-    taskParams.stackSize = TASKSTACKSIZE;
-    taskParams.stack = &task0Stack;
-    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams,
-                   NULL);
+//    Task_Params_init(&taskParams);
+//    taskParams.arg0 = 1000000 / Clock_tickPeriod;
+//    taskParams.stackSize = TASKSTACKSIZE;
+//    taskParams.stack = &task0Stack;
+//    Task_construct(&task0Struct, (Task_FuncPtr) maintask, &taskParams, NULL);
 
-    //bmxService_createTask();
+//    pcService_createTask();
+    lightService_createTask();
 
     /* Open and setup pins */
     setuppins();
