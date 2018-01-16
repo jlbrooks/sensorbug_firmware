@@ -339,32 +339,32 @@ static void PrepareTxFrame( uint8_t port )
             getBmxData(bmxData);
 
             message.has_accelz = true;
-            message.accelz = (bmxData[19] << 8) | bmxData[18];
+            message.accelz = ((float)((bmxData[19] << 8) | bmxData[18])) * (2.0 / 32767);
 
             message.has_accely = true;
-            message.accely = (bmxData[17] << 8) | bmxData[16];
+            message.accely = ((float)((bmxData[17] << 8) | bmxData[16])) * (2.0 / 32767);
 
             message.has_accelx = true;
-            message.accelx = (bmxData[15] << 8) | bmxData[14];
+            message.accelx = ((float)((bmxData[15] << 8) | bmxData[14])) * (2.0 / 32767);
 
             message.has_gyrz = true;
-            message.gyrz = (bmxData[13] << 8) | bmxData[12];
+            message.gyrz = ((float)((bmxData[13] << 8) | bmxData[12])) * (2000.0 / 32767);
 
             message.has_gyry = true;
-            message.gyry = (bmxData[11] << 8) | bmxData[10];
+            message.gyry = ((float)((bmxData[11] << 8) | bmxData[10])) * (2000.0 / 32767);
 
             message.has_gyrx = true;
-            message.gyrx = (bmxData[9] << 8) | bmxData[8];
+            message.gyrx = ((float)((bmxData[9] << 8) | bmxData[8])) * (2000.0 / 32767);
 
 
             message.has_magz = true;
-            message.magz = (bmxData[5] << 8) | bmxData[4];
+            message.magz = ((float)((bmxData[5] << 8) | bmxData[4])) * (2500.0 / 32767);
 
             message.has_magy = true;
-            message.magy = (bmxData[3] << 8) | bmxData[2];
+            message.magy = ((float)((bmxData[3] << 8) | bmxData[2])) * (1300.0 / 32767);
 
             message.has_magx = true;
-            message.magx = (bmxData[1] << 8) | bmxData[0];
+            message.magx = ((float)((bmxData[1] << 8) | bmxData[0])) * (1300.0 / 32767);
 
 
         } else if(mode == MODE_DEEP_SLEEP) {
