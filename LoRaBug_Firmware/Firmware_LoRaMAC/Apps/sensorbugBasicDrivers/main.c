@@ -1,13 +1,14 @@
 
 /* XDCtools Header files */
 
-#include <Apps/sensorbugBasicDrivers/bme680.h>
+
 #include <Apps/sensorbugBasicDrivers/Commissioning.h>
 #include <Apps/sensorbugBasicDrivers/pb_decode.h>
 #include <Apps/sensorbugBasicDrivers/pb_encode.h>
 #include <Apps/sensorbugBasicDrivers/occulow.pb.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
+#include <stdlib.h>
 
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
@@ -15,6 +16,7 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Event.h>
 #include <ti/sysbios/knl/Semaphore.h>
+
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/I2C.h>
@@ -37,6 +39,11 @@
 
 #include "Services/grideyeService.h"
 #include "Services/pcService.h"
+#include "Services/bmeService.h"
+#include "Services/bmxService.h"
+#include "Services/pcService.h"
+#include "Services/lightService.h"
+
 
 #include <ti/drivers/I2C.h>
 #include <ti/drivers/i2c/I2CCC26XX.h>
@@ -63,6 +70,7 @@ static TimerEvent_t broadcastTimer;
 
 #define JOINED_STATUS_FLASH_ADDR 0x1FFFF
 #define JOINED_STATUS_VAL 0x42
+
 
 /*------------------------------------------------------------------------*/
 /*                      Start of LoRaWan Demo Code                        */
@@ -107,6 +115,7 @@ static TimerEvent_t broadcastTimer;
  */
 #define LORAWAN_APP_DATA_SIZE                       11
 
+
 #define LORAWAN_DEV_EUI_SIZE 8
 #define LORAWAN_APP_KEY_SIZE 16
 
@@ -118,6 +127,8 @@ static uint8_t DevEui[] = LORAWAN_DEVICE_EUI;
 
 static uint8_t AppEui[] = LORAWAN_APPLICATION_EUI;
 static uint8_t AppKey[] = LORAWAN_APPLICATION_KEY;
+
+static uint8_t mode = MODE_SENSORBUG;
 
 #if( OVER_THE_AIR_ACTIVATION == 0 )
 
@@ -278,6 +289,8 @@ static void PrepareTxFrame( uint8_t port )
 {
     size_t message_length;
     static CountMessage message = CountMessage_init_zero;
+    // static SensorMessage message = SensorMessage_init_zero;
+
     pb_ostream_t stream;
     bool status;
     static pc_counter_t counter;
@@ -413,7 +426,6 @@ static void OnTxNextPacketTimerEvent( void )
             DeviceState = DEVICE_STATE_JOIN;
         }
     }
-
     Event_post(runtimeEvents, EVENT_STATECHANGE);
 }
 
@@ -725,6 +737,7 @@ static void loadDeviceInfo() {
     // Dev EUI is device BLE address
     BoardGetUniqueId(DevEui);
 #endif
+
 }
 
 void maintask(UArg arg0, UArg arg1)
@@ -902,12 +915,20 @@ void maintask(UArg arg0, UArg arg1)
 
 }
 
+int dummy(UArg arg1, UArg arg2) {
+    BoardInitMcu( );
+    BoardInitPeriph( );
+    while (1) {
+        Task_sleep(TIME_MS * 50000);
+    }
+}
+
 /*
  *  ======== main ========
  */
 int main(void)
 {
-    Task_Params taskParams;
+//    Task_Params taskParams;
 
     /* Call board init functions */
     Board_initGeneral();

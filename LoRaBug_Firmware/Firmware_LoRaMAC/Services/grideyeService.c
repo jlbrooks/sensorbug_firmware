@@ -48,6 +48,24 @@
  * CONSTANTS
  */
 
+
+#define GE_BUFFER_DATA_LENGTH 64
+
+#define GE_READ_TIME 50
+
+// Grideye registers and addresses
+#define GE_SLAVE_ADDRESS 0x69
+#define GE_REG_THERM_LSB 0x0E
+#define GE_REG_THERM_MSB 0x0F
+#define GE_REG_PIXEL_BASE 0x80
+#define GE_REG_STATE 0x00
+#define GE_REG_RESET 0x01
+
+#define GE_CMD_INITIAL_RESET 0x3F
+#define GE_CMD_FLAG_RESET 0x30
+
+#define GE_POWER_PIN Board_HDR_PORTF6
+
 #define GE_BUFFER_DATA_LENGTH 64
 
 #define GE_READ_TIME 50
@@ -110,7 +128,6 @@ static uint8_t grideye_read_byte(uint8_t addr) {
     handle = I2C_open(Board_I2C, &params);
     if(!handle) {
         //uartprintf("Error opening i2c handle during read\r\n");
-    }
 
     i2cTrans.slaveAddress = GE_SLAVE_ADDRESS;
     i2cTrans.writeBuf = ge_write_buffer;
